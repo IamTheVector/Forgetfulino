@@ -8,7 +8,7 @@ Arduino library that automatically embeds the sketch source code into the firmwa
 - Works with sketches of any size
 - PROGMEM support for Arduino AVR
 - Compatible with ESP8266, ESP32, SAMD, RP2040
-- Simple - just include the library
+- Simple - launch the python script,include the library, upload
 
 ## Installation
 
