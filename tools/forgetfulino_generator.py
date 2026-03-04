@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Forgetfulino Source Code Generator
-Generates header file with sketch source code
+Generates header file directly in the library folder
 """
 
 import os
@@ -50,6 +50,15 @@ def text_to_c_array(text, var_name):
     array_content = ',\n'.join(lines)
     return f'const char {var_name}[] PROGMEM = {{\n{array_content}\n}};'
 
+def get_library_src_path():
+    """Get the library src path based on the generator location"""
+    # The generator is in tools/forgetfulino_generator.py
+    # So library src is ../src/
+    generator_path = os.path.dirname(os.path.abspath(__file__))
+    library_root = os.path.dirname(generator_path)  # tools parent = library root
+    src_path = os.path.join(library_root, "src")
+    return src_path
+
 def main():
     if len(sys.argv) > 1:
         sketch_folder = sys.argv[1]
@@ -58,7 +67,7 @@ def main():
     
     print("\nFORGETFULINO GENERATOR")
     print("======================")
-    print(f"Folder: {sketch_folder}")
+    print(f"Sketch folder: {sketch_folder}")
     
     ino_file = find_sketch_file(sketch_folder)
     if not ino_file:
@@ -106,24 +115,20 @@ const char forgetfulino_sketch_name[] PROGMEM = "{os.path.basename(ino_file)}";
 #endif
 """
     
-    # Save in sketch folder
-    sketch_output = os.path.join(sketch_folder, "forgetfulino_source_data.h")
+    # Save DIRECTLY to library src folder
+    lib_src_path = get_library_src_path()
+    output_file = os.path.join(lib_src_path, "forgetfulino_source_data.h")
+    
     try:
-        with open(sketch_output, 'w', encoding='utf-8') as f:
+        with open(output_file, 'w', encoding='utf-8') as f:
             f.write(header_content)
-        print(f"File generated: {sketch_output}")
+        print(f"File generated directly in library: {output_file}")
     except Exception as e:
         print(f"\nERROR: {e}")
         sys.exit(1)
     
     print("\nOPERATION COMPLETED")
     print("Now you can compile and upload your sketch!")
-    print("\nNext steps:")
-    print("1. Copy the generated file to your library folder:")
-    print(f"   cp {sketch_output} /path/to/Arduino/libraries/Forgetfulino/src/")
-    print("2. Open Arduino IDE")
-    print("3. Compile and upload your sketch")
-    print("4. Call Forgetfulino.dumpSource() to see the embedded code")
 
 if __name__ == "__main__":
     main()
