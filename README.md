@@ -9,7 +9,6 @@ This makes it possible to recover the exact code uploaded to a board even if the
 ## Features
 
 - Zero RAM usage, reads directly from flash memory
-- Works with sketches of any size, no RAM limitations
 - PROGMEM support for Arduino AVR
 - Compatible with multiple architectures:
   - AVR
