@@ -1,0 +1,29 @@
+#include <Forgetfulino.h>
+/* Run cmd on the sketch folder
+EXECUTE: python "C:\...[YOUR PATH]...\libraries\Forgetfulino\tools\forgetfulino_generator.py"
+upload the code
+look at serial data
+*/
+
+
+void setup() {
+  Serial.begin(115200);
+  delay(2000);
+  
+  Serial.println("\nFORGETFULINO DEMO");
+  Serial.println("=================");
+  
+  if (Forgetfulino.hasSourceData()) {
+    Serial.print("Embedded source: ");
+    Serial.print(Forgetfulino.getSourceSize());
+    Serial.println(" bytes");
+    Serial.println("\n--- SKETCH SOURCE ---");
+    Forgetfulino.dumpSource();
+    Serial.println("--- END SKETCH ---");
+  } else {
+    Serial.println("ERROR: Source not found!");
+    Serial.println("Run tools/forgetfulino_generator.py before compiling");
+  }
+}
+
+void loop() {}
