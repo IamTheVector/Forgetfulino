@@ -1,172 +1,261 @@
 # Forgetfulino
 
-Arduino library that automatically embeds the sketch source code into the firmware and allows retrieving it via Serial.
+Forgetfulino is an Arduino library that embeds the original sketch source code directly inside the compiled firmware and allows retrieving it later through the Serial interface.
 
-## Features
+This allows you to recover the exact code uploaded to the board even if the original sketch file is lost.
 
-- Zero RAM usage - reads directly from flash memory
-- Works with sketches of any size - no memory limitations
-- PROGMEM support for Arduino AVR
-- Compatible with multiple architectures: AVR, ESP8266, ESP32, SAMD, RP2040
-- Simple to use - just include the library and call one function
+------------------------------------------------------------
 
-## Installation
+## Key Features
 
+- Zero RAM usage, source is read directly from flash memory
+- Works with sketches of any size
+- PROGMEM support on AVR architectures
+- Compatible with multiple platforms:
+  - AVR (Arduino Uno, Mega, Nano)
+  - ESP8266
+  - ESP32
+  - SAMD
+  - RP2040
+- Simple integration, include the library and call one function
 
-### Manual Installation
-1. Download this repository as ZIP
-2. In Arduino IDE: Sketch -> Include Library -> Add .ZIP Library
-3. Select the downloaded ZIP file
+------------------------------------------------------------
 
-### Manual Installation (alternative)
-1. Clone or download this repository
-2. Copy the `Forgetfulino` folder to your Arduino libraries folder:
-   - Windows: `Documents/Arduino/libraries/`
-   - macOS: `~/Documents/Arduino/libraries/`
-   - Linux: `~/Arduino/libraries/`
+## How It Works
+
+1. A generator script reads the .ino sketch file.
+2. The source code is converted into a C array stored in flash memory.
+3. The generated header is compiled together with the firmware.
+4. At runtime the library reads the data from flash and prints it through Serial.
+
+The source never occupies RAM and remains stored in firmware memory.
+
+------------------------------------------------------------
+
+# Installation
+
+## Install from ZIP
+
+1. Download the repository as ZIP
+2. Open Arduino IDE
+3. Go to:
+
+Sketch → Include Library → Add .ZIP Library
+
+4. Select the downloaded archive
+
+------------------------------------------------------------
+
+## Manual Installation
+
+1. Clone or download the repository
+2. Copy the folder:
+
+Forgetfulino
+
+into your Arduino libraries directory.
+
+Typical paths:
+
+Windows
+Documents/Arduino/libraries/
+
+macOS
+~/Documents/Arduino/libraries/
+
+Linux
+~/Arduino/libraries/
+
 3. Restart Arduino IDE
 
-## Usage
+------------------------------------------------------------
 
-### 1. Generate the source header
+# Usage
 
-Before compiling your sketch, run the Python generator in your sketch folder:
-cd /path/to/your/sketch/folder
+## Step 1 - Generate the source header
+
+Before compiling the sketch, run the generator script inside the sketch folder.
+
+Example:
+
 python /path/to/Forgetfulino/tools/forgetfulino_generator.py
 
-text
+This will create the file:
 
-This creates `forgetfulino_source_data.h` in your sketch folder.
+forgetfulino_source_data.h
 
-### 2. Copy to library (first time only)
-cp forgetfulino_source_data.h /path/to/Arduino/libraries/Forgetfulino/src/
+inside the sketch directory.
 
-text
+------------------------------------------------------------
 
-### 3. Add to your sketch
+## Step 2 - Copy the generated header
 
+Copy the generated file into the library source folder:
+
+Arduino/libraries/Forgetfulino/src/
+
+This step is required only the first time or whenever the sketch changes.
+
+------------------------------------------------------------
+
+## Step 3 - Include the library
+
+Add Forgetfulino to your sketch:
 
 #include <Forgetfulino.h>
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
   delay(2000);
-  
-  if (Forgetfulino.hasSourceData()) {
-    Serial.println("Embedded source found!");
+
+  if (Forgetfulino.hasSourceData())
+  {
+    Serial.println("Embedded source found");
     Serial.print("Size: ");
     Serial.print(Forgetfulino.getSourceSize());
     Serial.println(" bytes");
-    
-    // Dump the entire source code
+
     Forgetfulino.dumpSource();
-  } else {
-    Serial.println("No source data found!");
-    Serial.println("Run the generator before compiling.");
+  }
+  else
+  {
+    Serial.println("No source data available");
+    Serial.println("Run the generator before compiling");
   }
 }
 
-void loop() {
-  // Your code here
+void loop()
+{
 }
-4. Compile and upload
-The source code is now embedded in your firmware!
 
-Example Output
-When you open the Serial Monitor, you'll see:
+------------------------------------------------------------
 
-text
+## Step 4 - Compile and Upload
+
+Upload the sketch normally.
+
+The firmware will now contain the original source code.
+
+Opening the Serial Monitor will allow retrieving the full sketch.
+
+------------------------------------------------------------
+
+# Example Serial Output
+
 +-----------------------------------------+
 |      FORGETFULINO SKETCH SOURCE         |
 +-----------------------------------------+
-File: YourSketch.ino
+
+File: ExampleSketch.ino
 Size: 1234 bytes
+
 -------------------------------------------
 
-// File: YourSketch.ino
+// File: ExampleSketch.ino
 // Date: 2024-01-15 14:30:45
 
 #include <Forgetfulino.h>
 
 void setup() {
   Serial.begin(115200);
-  // ... rest of your code ...
 }
 
 void loop() {
-  // ... your code ...
 }
 
 -------------------------------------------
-API Reference
-Method	Description
-hasSourceData()	Returns true if source code is embedded
-getSourceSize()	Returns the size of the embedded source in bytes
-getSketchName()	Returns the sketch filename
-dumpSource()	Prints the entire source code to Serial
-begin()	Initializes the library (optional)
-How It Works
-The Python generator reads your .ino sketch file
 
-It converts the source code into a C array stored in PROGMEM (flash memory)
+------------------------------------------------------------
 
-The generated header file is included in the library
+# API Reference
 
-At runtime, dumpSource() reads directly from flash and prints to Serial
+hasSourceData()
 
-No RAM is used - the source stays in flash memory
+Returns true if embedded source data exists.
 
-Requirements
-Python 3.x for the generator script
+getSourceSize()
 
-Arduino IDE 1.8.x or higher
+Returns the size of the stored source code in bytes.
 
-Any Arduino-compatible board (AVR, ESP, ARM, etc.)
+getSketchName()
 
-Troubleshooting
-"No source data available" error
-Run the generator before compiling
+Returns the name of the embedded sketch file.
 
-Make sure forgetfulino_source_data.h is in the library src folder
+dumpSource()
 
-Check that the file was generated correctly
+Prints the entire stored source code to Serial.
+
+begin()
+
+Optional initialization function.
+
+------------------------------------------------------------
+
+# Requirements
+
+- Python 3.x for the generator script
+- Arduino IDE 1.8 or newer
+- Any Arduino compatible board
+
+Supported architectures include AVR, ESP8266, ESP32, ARM and RP2040.
+
+------------------------------------------------------------
+
+# Troubleshooting
+
+"No source data available"
+
+Run the generator script before compiling the sketch.
+
+Verify that the file:
+
+forgetfulino_source_data.h
+
+exists inside the library src folder.
+
+------------------------------------------------------------
 
 Compilation errors
-Verify that the library is installed in the correct folder
 
-Restart Arduino IDE after installation
+Check that:
 
-Check for multiple versions of the library
+- the library is installed in the correct directory
+- the Arduino IDE has been restarted after installation
+- no duplicate versions of the library exist
 
-Contributing
-Contributions are welcome! Please feel free to submit a Pull Request.
+------------------------------------------------------------
 
-License
+# Contributing
+
+Pull requests and improvements are welcome.
+
+------------------------------------------------------------
+
+# License
+
 MIT License
 
 Copyright (c) 2024 IamTheVector
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+of this software and associated documentation files to deal in the Software
+without restriction, including use, copy, modify, merge, publish, distribute,
+sublicense, and sell copies of the Software.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The software is provided "as is", without warranty of any kind.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+------------------------------------------------------------
 
-Author
+# Author
+
 IamTheVector
-GitHub: @IamTheVector
 
-Support
-If you find this library useful, please give it a star on GitHub!
+GitHub
+https://github.com/IamTheVector
+
+------------------------------------------------------------
+
+# Support
+
+If you find this project useful, consider starring the repository on GitHub.
