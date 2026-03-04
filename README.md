@@ -12,11 +12,6 @@ Arduino library that automatically embeds the sketch source code into the firmwa
 
 ## Installation
 
-### Via Arduino Library Manager (soon)
-1. Open Arduino IDE
-2. Go to Sketch -> Include Library -> Manage Libraries
-3. Search for "Forgetfulino"
-4. Click Install
 
 ### Manual Installation
 1. Download this repository as ZIP
