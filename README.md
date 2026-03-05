@@ -1,86 +1,23 @@
-# Forgetfulino
+tools\watcher.bat
 
-Forgetfulino is an Arduino library that embeds the original sketch source code directly into the compiled firmware and allows retrieving it later through the Serial interface.
 
-This makes it possible to recover the exact code uploaded to a board even if the original sketch file is lost.
+### Linux / macOS
 
-------------------------------------------------------------
+Run:
 
-## Features
 
-- Stores the sketch source code inside firmware flash memory
-- Zero RAM usage (data is read directly from flash)
-- Designed for small sketches and prototype projects
-- Simple integration with Arduino sketches
-- Retrieval through Serial interface
+./tools/watcher.sh
 
-------------------------------------------------------------
 
-## Installation
+The watcher will monitor your sketch and automatically regenerate:
 
-### Arduino Library Manager (planned)
-
-1. Open Arduino IDE
-2. Go to:
-
-Sketch → Include Library → Manage Libraries
-
-3. Search for **Forgetfulino**
-4. Click **Install**
-
-------------------------------------------------------------
-
-### Manual Installation (ZIP)
-
-1. Download this repository as ZIP
-2. Open Arduino IDE
-3. Go to:
-
-Sketch → Include Library → Add .ZIP Library
-
-4. Select the downloaded ZIP file
-
-------------------------------------------------------------
-
-### Manual Installation (folder)
-
-1. Clone or download this repository
-2. Copy the `Forgetfulino` folder into your Arduino libraries directory.
-
-Typical locations:
-
-Windows  
-Documents/Arduino/libraries/
-
-macOS  
-~/Documents/Arduino/libraries/
-
-Linux  
-~/Arduino/libraries/
-
-3. Restart Arduino IDE
-
-------------------------------------------------------------
-
-# Usage
-
-## 1. Generate the source header
-
-Before compiling your sketch, run the Python generator inside your sketch folder.
-
-Example:
-
-cd /path/to/your/sketch
-
-python /path/to/Arduino/libraries/Forgetfulino/tools/forgetfulino_generator.py
-
-This script reads the `.ino` file and generates the header:
 
 forgetfulino_source_data.h
 
-The generated file is written to:
 
-/path/to/Arduino/libraries/Forgetfulino/src/
+whenever the `.ino` file is modified.
+
+Keep the watcher running while you develop your sketch.
 
 ------------------------------------------------------------
 
@@ -108,7 +45,7 @@ void setup() {
   } else {
 
     Serial.println("No source data found.");
-    Serial.println("Run the generator before compiling.");
+    Serial.println("Make sure the watcher is running.");
 
   }
 
@@ -117,9 +54,7 @@ void setup() {
 void loop() {
 
 }
-
-
-3. Upload the sketch
+3. Compile and upload
 
 Compile and upload the sketch normally using the Arduino IDE.
 
@@ -173,15 +108,21 @@ Optional initialization function.
 
 How It Works
 
-The Python generator reads the .ino sketch file and converts the source code into a C array stored in flash memory.
+The Forgetfulino watcher monitors your .ino file.
 
-The generator produces a header file:
+When the sketch changes:
+
+The watcher reads the .ino source file
+
+The source code is converted into a C array
+
+The array is stored in a generated header file:
 
 forgetfulino_source_data.h
 
 This file is compiled together with the firmware.
 
-At runtime, the library reads the data directly from flash memory and prints it through Serial.
+At runtime the library reads the source code directly from flash memory and streams it to the Serial interface.
 
 The source code is never copied into RAM.
 
@@ -193,27 +134,29 @@ src/
     Forgetfulino.h
     Forgetfulino.cpp
     forgetfulino_source_data.h (generated automatically)
+
 tools/
     forgetfulino_generator.py
+    watcher.bat
+    watcher.sh
 Requirements
 
-Python 3.x for the generator script
+Python 3.x (required by the watcher)
 
 Arduino IDE 1.8 or newer
 
 An Arduino compatible board
 
 Troubleshooting
-
 "No source data available"
 
-Run the generator before compiling.
+Make sure the watcher is running.
 
 Verify that the file:
 
 forgetfulino_source_data.h
 
-exists inside the library src folder.
+exists inside the src folder.
 
 Compilation errors
 
@@ -221,15 +164,15 @@ Check that:
 
 the library is installed in the correct directory
 
-the Arduino IDE has been restarted
+Arduino IDE has been restarted
 
-no duplicate versions of the library exist
+there are no duplicate library installations
 
 Contributing
 
 Contributions and suggestions are welcome.
 
-Feel free to submit issues or pull requests.
+Feel free to open issues or submit pull requests.
 
 License
 
