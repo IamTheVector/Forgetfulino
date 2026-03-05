@@ -132,6 +132,10 @@ void setup() {
 void loop() {
 
 }
+```
+
+
+
 3. Compile and upload
 
 Compile and upload the sketch normally using the Arduino IDE.
