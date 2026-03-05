@@ -1,8 +1,10 @@
 #include <Forgetfulino.h>
+
 /* Run cmd on the sketch folder
-EXECUTE: python "C:\...[YOUR PATH]...\libraries\Forgetfulino\tools\forgetfulino_generator.py"
-upload the code
-look at serial data
+EXECUTE: The watchdog
+IMPORTANT
+If you leave this example in the Examples folder will be just a read only file, so the watcher will not monitor it! 
+IMPORTANT
 */
 
 
