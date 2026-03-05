@@ -8,60 +8,54 @@ This makes it possible to recover the exact code uploaded to a board even if the
 
 ## Features
 
-- Zero RAM usage, reads directly from flash memory
-- PROGMEM support for Arduino AVR
-- Compatible with multiple architectures:
-  - AVR
-  - ESP8266
-  - ESP32
-  - SAMD
-  - RP2040
-- Simple integration, include the library and call one function
+- Stores the sketch source code inside firmware flash memory
+- Zero RAM usage (data is read directly from flash)
+- Designed for small sketches and prototype projects
+- Simple integration with Arduino sketches
+- Retrieval through Serial interface
 
 ------------------------------------------------------------
 
 ## Installation
 
-### Via Arduino Library Manager (soon)
+### Arduino Library Manager (planned)
 
 1. Open Arduino IDE
 2. Go to:
 
 Sketch → Include Library → Manage Libraries
 
-3. Search for "Forgetfulino"
-4. Click Install
+3. Search for **Forgetfulino**
+4. Click **Install**
 
 ------------------------------------------------------------
 
-### Manual Installation
+### Manual Installation (ZIP)
 
 1. Download this repository as ZIP
-2. In Arduino IDE go to:
+2. Open Arduino IDE
+3. Go to:
 
 Sketch → Include Library → Add .ZIP Library
 
-3. Select the downloaded ZIP file
+4. Select the downloaded ZIP file
 
 ------------------------------------------------------------
 
-### Manual Installation (alternative)
+### Manual Installation (folder)
 
 1. Clone or download this repository
 2. Copy the `Forgetfulino` folder into your Arduino libraries directory.
 
 Typical locations:
 
-Windows
-
+Windows  
 Documents/Arduino/libraries/
 
-macOS
-
+macOS  
 ~/Documents/Arduino/libraries/
 
-Linux
-
+Linux  
 ~/Arduino/libraries/
 
 3. Restart Arduino IDE
@@ -80,55 +74,60 @@ cd /path/to/your/sketch
 
 python /path/to/Arduino/libraries/Forgetfulino/tools/forgetfulino_generator.py
 
-This will generate the file:
+This script reads the `.ino` file and generates the header:
 
 forgetfulino_source_data.h
 
-directly inside the library source folder:
+The generated file is written to:
 
-/path/to/Arduino/libraries/Forgetfulino/src/forgetfulino_source_data.h
+/path/to/Arduino/libraries/Forgetfulino/src/
 
 ------------------------------------------------------------
 
-## 2. Add the library to your sketch
+## 2. Include the library
 
-Include the library in your Arduino sketch.
+Add the library to your sketch:
 
+```cpp
 #include <Forgetfulino.h>
 
 void setup() {
+
   Serial.begin(115200);
   delay(2000);
 
   if (Forgetfulino.hasSourceData()) {
+
     Serial.println("Embedded source found!");
     Serial.print("Size: ");
     Serial.print(Forgetfulino.getSourceSize());
     Serial.println(" bytes");
 
-    // Dump the entire source code
     Forgetfulino.dumpSource();
+
   } else {
-    Serial.println("No source data found!");
+
+    Serial.println("No source data found.");
     Serial.println("Run the generator before compiling.");
+
   }
+
 }
 
 void loop() {
-  // Your code here
+
 }
 
 
-3. Compile and upload
+3. Upload the sketch
 
-Upload the sketch normally.
+Compile and upload the sketch normally using the Arduino IDE.
 
 The firmware will now contain the original source code.
 
-
 Example Output
 
-When opening the Serial Monitor you will see something similar to:
+Opening the Serial Monitor may show something similar to:
 
 +-----------------------------------------+
 |      FORGETFULINO SKETCH SOURCE         |
@@ -150,8 +149,6 @@ void setup() {
 
 void loop() {
 }
-
--------------------------------------------
 API Reference
 
 hasSourceData()
@@ -164,11 +161,11 @@ Returns the size of the embedded source code in bytes.
 
 getSketchName()
 
-Returns the name of the stored sketch.
+Returns the stored sketch name.
 
 dumpSource()
 
-Prints the entire stored source code to Serial.
+Prints the stored source code to the Serial interface.
 
 begin()
 
@@ -176,45 +173,41 @@ Optional initialization function.
 
 How It Works
 
-The Python generator reads the .ino sketch file.
+The Python generator reads the .ino sketch file and converts the source code into a C array stored in flash memory.
 
-The source code is converted into a C array stored in flash memory.
+The generator produces a header file:
 
-The generated header file is saved inside the library src folder.
+forgetfulino_source_data.h
 
-At runtime, dumpSource() reads directly from flash memory and prints the code through Serial.
+This file is compiled together with the firmware.
 
-No RAM is used, the source remains stored entirely in flash memory.
+At runtime, the library reads the data directly from flash memory and prints it through Serial.
+
+The source code is never copied into RAM.
 
 File Structure
-
 Arduino/libraries/Forgetfulino/
 
-├── library.properties
-├── src/
-│ ├── Forgetfulino.h
-│ ├── Forgetfulino.cpp
-│ └── forgetfulino_source_data.h (generated automatically)
-└── tools/
-└── forgetfulino_generator.py
-
+library.properties
+src/
+    Forgetfulino.h
+    Forgetfulino.cpp
+    forgetfulino_source_data.h (generated automatically)
+tools/
+    forgetfulino_generator.py
 Requirements
 
 Python 3.x for the generator script
 
 Arduino IDE 1.8 or newer
 
-Any Arduino compatible board
-
-Supported architectures include AVR, ESP8266, ESP32, ARM and RP2040.
+An Arduino compatible board
 
 Troubleshooting
 
 "No source data available"
 
 Run the generator before compiling.
-
-Make sure the generator completed successfully.
 
 Verify that the file:
 
@@ -234,7 +227,9 @@ no duplicate versions of the library exist
 
 Contributing
 
-Contributions are welcome. Feel free to submit a Pull Request.
+Contributions and suggestions are welcome.
+
+Feel free to submit issues or pull requests.
 
 License
 
@@ -242,19 +237,13 @@ MIT License
 
 Copyright (c) 2024 IamTheVector
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files to deal in the Software
-without restriction, including use, copy, modify, merge, publish, distribute,
-sublicense, and sell copies of the Software.
-
 The software is provided "as is", without warranty of any kind.
 
 Author
 
 IamTheVector
 
-GitHub: @IamTheVector
+GitHub
+https://github.com/IamTheVector
 
-Support
-
-If you find this library useful, consider giving the repository a star on GitHub.
+If you find this library useful, consider giving the repository a ⭐ on GitHub.
