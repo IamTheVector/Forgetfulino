@@ -10,7 +10,7 @@ This makes it possible to recover the exact code uploaded to a board even if the
 
 Watch Forgetfulino in action:
 
-https://youtu.be/TUO_LINK_VIDEO
+https://youtu.be/uH2gtOAQf4U
 ---
 
 ## Features
