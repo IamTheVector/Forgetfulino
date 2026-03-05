@@ -6,6 +6,13 @@ This makes it possible to recover the exact code uploaded to a board even if the
 
 ---
 
+## Demo
+
+Watch Forgetfulino in action:
+
+https://youtu.be/TUO_LINK_VIDEO
+---
+
 ## Features
 
 - Stores the sketch source code inside firmware flash memory
