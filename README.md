@@ -1,3 +1,81 @@
+# Forgetfulino
+
+Forgetfulino is an Arduino library that embeds the original sketch source code directly into the compiled firmware and allows retrieving it later through the Serial interface.
+
+This makes it possible to recover the exact code uploaded to a board even if the original sketch file is lost.
+
+------------------------------------------------------------
+
+## Features
+
+- Stores the sketch source code inside firmware flash memory
+- Zero RAM usage (data is read directly from flash)
+- Designed for small sketches and prototype projects
+- Simple integration with Arduino sketches
+- Automatic source generation using a file watcher
+- Retrieval through Serial interface
+
+------------------------------------------------------------
+
+## Installation
+
+### Arduino Library Manager (planned)
+
+1. Open Arduino IDE
+2. Go to:
+
+Sketch → Include Library → Manage Libraries
+
+3. Search for **Forgetfulino**
+4. Click **Install**
+
+------------------------------------------------------------
+
+### Manual Installation (ZIP)
+
+1. Download this repository as ZIP
+2. Open Arduino IDE
+3. Go to:
+
+Sketch → Include Library → Add .ZIP Library
+
+4. Select the downloaded ZIP file
+
+------------------------------------------------------------
+
+### Manual Installation (folder)
+
+1. Clone or download this repository
+2. Copy the `Forgetfulino` folder into your Arduino libraries directory.
+
+Typical locations:
+
+Windows  
+Documents/Arduino/libraries/
+
+macOS  
+~/Documents/Arduino/libraries/
+
+Linux  
+~/Arduino/libraries/
+
+3. Restart Arduino IDE
+
+------------------------------------------------------------
+
+# Usage
+
+## 1. Start the Forgetfulino watcher
+
+Forgetfulino includes a **watcher script** that automatically generates the source header every time your `.ino` file changes.
+
+This avoids running the generator manually before every compilation.
+
+### Windows
+
+Run:
+
+
 tools\watcher.bat
 
 
