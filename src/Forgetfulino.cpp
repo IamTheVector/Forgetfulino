@@ -1,27 +1,18 @@
 #include "Forgetfulino.h"
 
-// The generated file must be in the same folder as this .cpp
+// Generated data headers (AUTO-GENERATED - DO NOT EDIT)
+// These files are produced by tools/forgetfulino_generator.py
 #include "forgetfulino_source_data.h"
+#include "forgetfulino_compressed.h"
 
-// Data references (defined in the generated file)
-extern const char forgetfulino_source_data[];
-extern const unsigned int forgetfulino_source_size;
-extern const char forgetfulino_sketch_name[];
-
-ForgetfulinoClass::ForgetfulinoClass() : initialized(false) {
-}
-
-ForgetfulinoClass::~ForgetfulinoClass() {
+ForgetfulinoClass::ForgetfulinoClass()
+    : initialized(false) {
 }
 
 void ForgetfulinoClass::begin() {
     if (!initialized) {
         initialized = true;
     }
-}
-
-bool ForgetfulinoClass::hasSourceData() {
-    return forgetfulino_source_size > 0;
 }
 
 char ForgetfulinoClass::readFlashChar(const char* addr) {
@@ -35,65 +26,99 @@ char ForgetfulinoClass::readFlashChar(const char* addr) {
 }
 
 void ForgetfulinoClass::dumpSource() {
-    if (!hasSourceData()) {
+    // `forgetfulino_source_size`, `forgetfulino_source_data` and
+    // `forgetfulino_sketch_name` are defined in forgetfulino_source_data.h
+    if (forgetfulino_source_size == 0) {
         Serial.println(F("ERROR: No source data available"));
         return;
     }
-    
-    // Print header
+
+    // Header
     Serial.println(F("\n+-----------------------------------------+"));
     Serial.println(F("|      FORGETFULINO SKETCH SOURCE         |"));
     Serial.println(F("+-----------------------------------------+"));
-    
-    // Print filename
+
+    // Filename
     Serial.print(F("File: "));
     for (int i = 0; i < 64; i++) {
         char c = readFlashChar(&forgetfulino_sketch_name[i]);
-        if (c == '\0') break;
+        if (c == '\0') {
+            break;
+        }
         Serial.print(c);
     }
     Serial.println();
-    
-    // Print size
+
+    // Size
     Serial.print(F("Size: "));
     Serial.print(forgetfulino_source_size);
     Serial.println(F(" bytes"));
-    
-    // Separator line
+
     Serial.println(F("-------------------------------------------"));
     Serial.println();
-    
-    // Print source directly from flash, one character at a time
+
+    // Source content from PROGMEM
     for (unsigned int i = 0; i < forgetfulino_source_size; i++) {
         char c = readFlashChar(&forgetfulino_source_data[i]);
         Serial.print(c);
-        
+
         // Small delay to avoid overwhelming the serial buffer
         if (i % 100 == 0) {
             delay(1);
         }
     }
-    
-    // Final line
+
     Serial.println();
     Serial.println(F("-------------------------------------------"));
 }
 
-size_t ForgetfulinoClass::getSourceSize() {
-    return forgetfulino_source_size;
-}
-
-const char* ForgetfulinoClass::getSketchName() {
-    // Static version for compatibility
-    static char sketchName[64];
-    
-    for (int i = 0; i < 63; i++) {
-        sketchName[i] = readFlashChar(&forgetfulino_sketch_name[i]);
-        if (sketchName[i] == '\0') break;
+void ForgetfulinoClass::dumpCompressed() {
+    // `forgetfulino_compressed_data` and `forgetfulino_original_size`
+    // are defined in forgetfulino_compressed.h
+    if (forgetfulino_original_size == 0) {
+        Serial.println(F("ERROR: No compressed data available"));
+        return;
     }
-    sketchName[63] = '\0';
-    
-    return sketchName;
+
+    // Header
+    Serial.println(F("\n+-----------------------------------------+"));
+    Serial.println(F("|   FORGETFULINO COMPRESSED SKETCH DATA   |"));
+    Serial.println(F("+-----------------------------------------+"));
+
+    Serial.print(F("Original size: "));
+    Serial.print(forgetfulino_original_size);
+    Serial.println(F(" bytes"));
+
+    // Compute encoded length by scanning until null terminator in PROGMEM
+    unsigned long encodedLength = 0;
+    while (true) {
+        char c = readFlashChar(&forgetfulino_compressed_data[encodedLength]);
+        if (c == '\0') {
+            break;
+        }
+        encodedLength++;
+    }
+
+    Serial.print(F("Base85 length: "));
+    Serial.print(encodedLength);
+    Serial.println(F(" chars"));
+
+    Serial.println(F("-------------------------------------------"));
+    Serial.println();
+
+    // Print compressed data
+    for (unsigned long i = 0; i < encodedLength; i++) {
+        char c = readFlashChar(&forgetfulino_compressed_data[i]);
+        Serial.print(c);
+
+        // Optional small delay for very long outputs
+        if (i % 200 == 0) {
+            delay(1);
+        }
+    }
+
+    Serial.println();
+    Serial.println(F("-------------------------------------------"));
 }
 
 // Global library instance
