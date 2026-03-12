@@ -2,7 +2,7 @@
 /* WARNING THIS EXAMPLE WILL NOT WORK IF YOU LEAVE IT IN  
 THE EXAMPLE FOLDER (No read\write permissions), YOU HAVE TO PLACE IT 
 INSIDE THE SKETCH FOLDER OF ARDUINO
-Run bath on the sketch folder
+Run start_watcher (bat or sh) on the sketch folder
 
 EXECUTE: python "C:\...[YOUR PATH]...\libraries\Forgetfulino\tools\forgetfulino_generator.py"
 upload the code
