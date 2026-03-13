@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { spawn } from 'child_process';
 import type { ArduinoContext } from 'vscode-arduino-api';
 
 const OUTPUT_CHANNEL_NAME = 'Forgetfulino';
@@ -47,63 +46,192 @@ function resolveSketchFolder(arduino: ArduinoContext | undefined): string | unde
   return path.dirname(filePath);
 }
 
-function parsePythonCommandSetting(): { cmd: string; args: string[] } | undefined {
-  const cfg = vscode.workspace.getConfiguration('forgetfulino');
-  const raw = (cfg.get<string>('pythonCommand') ?? '').trim();
-  if (!raw) return undefined;
+// ---- Generator logic ported from forgetfulino_generator.py (no Python required) ----
 
-  // Minimal split respecting quotes is overkill here; keep it simple:
-  // allow forms like: py -3
-  const parts = raw.split(' ').filter(Boolean);
-  return { cmd: parts[0]!, args: parts.slice(1) };
+function findSketchFile(folder: string): string | undefined {
+  const entries = fs.readdirSync(folder);
+  const inoFiles = entries.filter((name) => name.toLowerCase().endsWith('.ino'));
+  if (!inoFiles.length) return undefined;
+  const folderName = path.basename(folder);
+  const main = inoFiles.find((name) => path.parse(name).name === folderName);
+  return main ? path.join(folder, main) : path.join(folder, inoFiles[0]!);
 }
 
-async function spawnAndWait(
-  cmd: string,
-  args: string[],
-  cwd: string,
-  env: NodeJS.ProcessEnv,
-  out: vscode.OutputChannel
-): Promise<number> {
-  return await new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { cwd, env, windowsHide: true });
-    child.stdout.on('data', (d) => out.append(d.toString()));
-    child.stderr.on('data', (d) => out.append(d.toString()));
-    child.on('error', reject);
-    child.on('close', (code) => resolve(code ?? 1));
-  });
-}
+function collectSketchSources(sketchFolder: string): { fullSource: string; mainName: string } {
+  const mainIno = findSketchFile(sketchFolder);
+  if (!mainIno) return { fullSource: '', mainName: '' };
 
-async function runGenerator(sketchFolder: string, libraryRoot: string, out: vscode.OutputChannel): Promise<void> {
-  const generatorPath = path.join(libraryRoot, 'tools', 'forgetfulino_generator.py');
-  if (!fs.existsSync(generatorPath)) {
-    throw new Error(`Generator not found at: ${generatorPath}`);
-  }
+  const folderName = path.basename(sketchFolder);
+  const mainName = path.basename(mainIno);
 
-  const pythonSetting = parsePythonCommandSetting();
-  const candidates: Array<{ cmd: string; args: string[] }> = pythonSetting
-    ? [pythonSetting]
-    : [
-        { cmd: 'python3', args: [] },
-        { cmd: 'python', args: [] },
-        { cmd: 'py', args: ['-3'] }
-      ];
+  const allEntries = fs.readdirSync(sketchFolder);
+  const inoList = allEntries
+    .filter((name) => name.toLowerCase().endsWith('.ino'))
+    .map((name) => path.join(sketchFolder, name))
+    .sort((a, b) => {
+      const aBase = path.basename(a);
+      const bBase = path.basename(b);
+      const aKey = aBase === mainName ? `0-${aBase}` : `1-${aBase}`;
+      const bKey = bBase === mainName ? `0-${bBase}` : `1-${bBase}`;
+      return aKey.localeCompare(bKey);
+    });
 
-  const env = { ...process.env, FORGETFULINO_LIBRARY_ROOT: libraryRoot };
-  let lastErr: unknown = undefined;
+  const cppList = allEntries
+    .filter((name) => {
+      const lower = name.toLowerCase();
+      return lower.endsWith('.cpp') || lower.endsWith('.c');
+    })
+    .map((name) => path.join(sketchFolder, name))
+    .sort((a, b) => path.basename(a).localeCompare(path.basename(b)));
 
-  for (const c of candidates) {
+  const ordered = [...inoList, ...cppList];
+
+  const parts: string[] = [];
+  for (const p of ordered) {
     try {
-      out.appendLine(`\n[Forgetfulino] Running: ${c.cmd} ${[...c.args, generatorPath].join(' ')}`);
-      const code = await spawnAndWait(c.cmd, [...c.args, generatorPath], sketchFolder, env, out);
-      if (code === 0) return;
-      lastErr = new Error(`Generator failed with exit code ${code}`);
-    } catch (e) {
-      lastErr = e;
+      const content = fs.readFileSync(p, 'utf8');
+      const name = path.basename(p);
+      parts.push(`// === File: ${name} ===\n`);
+      parts.push(content);
+      if (!content.endsWith('\n')) parts.push('\n');
+      parts.push('\n');
+    } catch {
+      // ignore unreadable files
     }
   }
 
-  throw lastErr instanceof Error ? lastErr : new Error('Failed to run generator (Python not found?)');
+  const header =
+    `// Sketch: ${folderName}\n` +
+    `// Date: ${new Date().toISOString().replace('T', ' ').split('.')[0]}\n` +
+    `// Files: ${ordered.length}\n\n`;
+
+  return { fullSource: header + parts.join(''), mainName };
+}
+
+function textToCArray(text: string, varName: string): string {
+  const lines: string[] = [];
+  let segment: string[] = [];
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!;
+    let token: string;
+    if (ch === '\n') token = "'\\n'";
+    else if (ch === '\r') token = "'\\r'";
+    else if (ch === '\t') token = "'\\t'";
+    else if (ch === '\\') token = "'\\\\'";
+    else if (ch === '"') token = "'\\\"'";
+    else if (ch === "'") token = "'\\''";
+    else token = `'${ch}'`;
+
+    segment.push(token);
+    if ((i + 1) % 16 === 0 || i === text.length - 1) {
+      lines.push('    ' + segment.join(', '));
+      segment = [];
+    }
+  }
+
+  const arrayContent = lines.join(',\n');
+  return `const char ${varName}[] PROGMEM = {\n${arrayContent}\n};`;
+}
+
+function toCStringLiteral(value: string, varName: string): string {
+  const out: string[] = [];
+  for (const ch of value) {
+    if (ch === '\\') out.push('\\\\');
+    else if (ch === '"') out.push('\\"');
+    else if (ch === '\n') out.push('\\n');
+    else if (ch === '\r') out.push('\\r');
+    else if (ch === '\t') out.push('\\t');
+    else out.push(ch);
+  }
+  const escaped = out.join('');
+  return `const char ${varName}[] PROGMEM = "${escaped}";`;
+}
+
+function ascii85Encode(buf: Uint8Array): string {
+  let result = '';
+  const n = buf.length;
+  let i = 0;
+  while (i < n) {
+    const remaining = n - i;
+    const chunk = buf.subarray(i, Math.min(i + 4, n));
+    let value = 0;
+    for (let j = 0; j < 4; j++) {
+      value = (value << 8) | (j < chunk.length ? chunk[j]! : 0);
+    }
+    const tmp: number[] = new Array(5);
+    for (let j = 4; j >= 0; j--) {
+      tmp[j] = (value % 85) + 33;
+      value = Math.floor(value / 85);
+    }
+    let outChars = String.fromCharCode(...tmp);
+    if (remaining < 4) {
+      // drop the extra chars for padded bytes
+      outChars = outChars.substring(0, remaining + 1);
+    }
+    result += outChars;
+    i += 4;
+  }
+  return result;
+}
+
+function generateSourceHeader(fullSource: string, mainName: string): string {
+  return `// Forgetfulino generated source data
+// AUTO-GENERATED - DO NOT EDIT
+
+#ifndef FORGETFULINO_SOURCE_DATA_H
+#define FORGETFULINO_SOURCE_DATA_H
+
+#include <Arduino.h>
+
+// Platform-specific PROGMEM
+#if defined(ARDUINO_ARCH_AVR)
+    #include <avr/pgmspace.h>
+#elif defined(ESP8266) || defined(ESP32)
+    #undef PROGMEM
+    #define PROGMEM
+#endif
+
+// Sketch source code
+${textToCArray(fullSource, 'forgetfulino_source_data')}
+
+// Metadata
+const unsigned int forgetfulino_source_size = ${fullSource.length};
+const char forgetfulino_sketch_name[] PROGMEM = "${mainName}";
+
+#endif
+`;
+}
+
+function generateCompressedHeader(fullSource: string): string {
+  const bytes = new TextEncoder().encode(fullSource);
+  const encoded = ascii85Encode(bytes);
+  const compressedLiteral = toCStringLiteral(encoded, 'forgetfulino_compressed_data');
+
+  return `// Forgetfulino generated compressed data
+// AUTO-GENERATED - DO NOT EDIT
+
+#ifndef FORGETFULINO_COMPRESSED_H
+#define FORGETFULINO_COMPRESSED_H
+
+#include <Arduino.h>
+
+// Platform-specific PROGMEM
+#if defined(ARDUINO_ARCH_AVR)
+    #include <avr/pgmspace.h>
+#elif defined(ESP8266) || defined(ESP32)
+    #undef PROGMEM
+    #define PROGMEM
+#endif
+
+// Base85-compressed sketch source (null-terminated string)
+${compressedLiteral}
+
+// Original uncompressed source size in bytes
+const unsigned int forgetfulino_original_size = ${fullSource.length};
+
+#endif
+`;
 }
 
 async function generateHeadersCommand(out: vscode.OutputChannel): Promise<void> {
@@ -122,6 +250,12 @@ async function generateHeadersCommand(out: vscode.OutputChannel): Promise<void> 
     return;
   }
 
+  const libSrcPath = path.join(libraryRoot, 'src');
+  if (!fs.existsSync(libSrcPath) || !fs.statSync(libSrcPath).isDirectory()) {
+    vscode.window.showErrorMessage(`Forgetfulino: library src folder not found at ${libSrcPath}`);
+    return;
+  }
+
   out.show(true);
   out.appendLine(`[Forgetfulino] Sketch folder: ${sketchFolder}`);
   out.appendLine(`[Forgetfulino] Library root: ${libraryRoot}`);
@@ -129,7 +263,25 @@ async function generateHeadersCommand(out: vscode.OutputChannel): Promise<void> 
   await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: 'Forgetfulino: generating headers…', cancellable: false },
     async () => {
-      await runGenerator(sketchFolder, libraryRoot, out);
+      const { fullSource, mainName } = collectSketchSources(sketchFolder);
+      if (!fullSource) {
+        throw new Error('No .ino file found in sketch folder.');
+      }
+
+      out.appendLine(`[Forgetfulino] Sketch: ${mainName}`);
+      out.appendLine(`[Forgetfulino] Size: ${fullSource.length} bytes`);
+
+      const sourceHeader = generateSourceHeader(fullSource, mainName);
+      const compressedHeader = generateCompressedHeader(fullSource);
+
+      const sourceHeaderPath = path.join(libSrcPath, 'forgetfulino_source_data.h');
+      const compressedHeaderPath = path.join(libSrcPath, 'forgetfulino_compressed.h');
+
+      fs.writeFileSync(sourceHeaderPath, sourceHeader, 'utf8');
+      fs.writeFileSync(compressedHeaderPath, compressedHeader, 'utf8');
+
+      out.appendLine(`[Forgetfulino] Generated: ${sourceHeaderPath}`);
+      out.appendLine(`[Forgetfulino] Generated: ${compressedHeaderPath}`);
     }
   );
 

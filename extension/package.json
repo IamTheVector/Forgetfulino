@@ -39,11 +39,6 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "If true, generate headers whenever a `.ino`, `.cpp`, or `.c` file is saved."
-        },
-        "forgetfulino.pythonCommand": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "Optional. Python command/path to run the generator (e.g. `python3`, `python`, `py -3`, or an absolute path). If empty, the extension will try common commands."
         }
       }
     }
