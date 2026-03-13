@@ -32,6 +32,48 @@ def find_sketch_file(folder: str) -> str | None:
     return ino_files[0]
 
 
+def collect_sketch_sources(sketch_folder: str) -> tuple[str, str]:
+    """
+    Collect all .ino and .cpp/.c files in the sketch folder (no subfolders, no libraries).
+    Returns (full_source_with_comments, main_ino_basename).
+    Main .ino is first, then other .ino alphabetically, then .cpp/.c alphabetically.
+    """
+    main_ino = find_sketch_file(sketch_folder)
+    if not main_ino:
+        return "", ""
+
+    folder_name = os.path.basename(sketch_folder)
+    main_name = os.path.basename(main_ino)
+    # All .ino in folder (main first)
+    ino_list = sorted(
+        [p for p in glob.glob(os.path.join(sketch_folder, "*.ino"))],
+        key=lambda p: (0 if os.path.basename(p) == main_name else 1, os.path.basename(p)),
+    )
+    # All .cpp and .c in folder (sketch tab files, not libraries)
+    cpp_list = sorted(glob.glob(os.path.join(sketch_folder, "*.cpp")) + glob.glob(os.path.join(sketch_folder, "*.c")))
+    # Build ordered list: main .ino first, then other .ino, then .cpp/.c
+    ordered = ino_list + cpp_list
+    parts = []
+    for path in ordered:
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                content = f.read()
+        except Exception:
+            continue
+        name = os.path.basename(path)
+        parts.append(f"// === File: {name} ===\n")
+        parts.append(content)
+        if not content.endswith("\n"):
+            parts.append("\n")
+        parts.append("\n")
+    full = "".join(parts)
+    # Global header
+    header = f"// Sketch: {folder_name}\n"
+    header += f"// Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+    header += f"// Files: {len(ordered)}\n\n"
+    return header + full, main_name
+
+
 def text_to_c_array(text: str, var_name: str) -> str:
     """Convert text to a C char array in PROGMEM."""
     lines: list[str] = []
@@ -84,13 +126,13 @@ def to_c_string_literal(value: str, var_name: str) -> str:
 
 
 def get_library_src_path() -> str:
-    """Get the library src path based on the generator location."""
-    # The generator is in tools/forgetfulino_generator.py
-    # So library src is ../src/
+    """Get the library src path. Uses FORGETFULINO_LIBRARY_ROOT if set (e.g. when run from standalone app)."""
+    env_root = os.environ.get("FORGETFULINO_LIBRARY_ROOT", "").strip()
+    if env_root and os.path.isdir(env_root):
+        return os.path.join(env_root, "src")
     generator_path = os.path.dirname(os.path.abspath(__file__))
     library_root = os.path.dirname(generator_path)  # tools parent = library root
-    src_path = os.path.join(library_root, "src")
-    return src_path
+    return os.path.join(library_root, "src")
 
 
 def generate_source_header(full_source: str, ino_file: str) -> str:
@@ -168,28 +210,17 @@ def main() -> None:
     print("======================")
     print(f"Sketch folder: {sketch_folder}")
 
-    ino_file = find_sketch_file(sketch_folder)
-    if not ino_file:
+    full_source, main_name = collect_sketch_sources(sketch_folder)
+    if not full_source:
         print("\nERROR: No .ino file found!")
         sys.exit(1)
 
-    print(f"Sketch: {os.path.basename(ino_file)}")
-
-    try:
-        with open(ino_file, "r", encoding="utf-8") as handle:
-            source_code = handle.read()
-    except Exception as exc:
-        print(f"\nERROR: {exc}")
-        sys.exit(1)
-
-    header_comment = f"// File: {os.path.basename(ino_file)}\n"
-    header_comment += f"// Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-    full_source = header_comment + source_code
+    print(f"Sketch: {main_name}")
 
     print(f"Size: {len(full_source)} bytes")
 
-    # Build header contents
-    source_header = generate_source_header(full_source, ino_file)
+    # Build header contents (main_name is the main .ino basename for metadata)
+    source_header = generate_source_header(full_source, main_name)
     compressed_header = generate_compressed_header(full_source)
 
     # Save into the library src folder

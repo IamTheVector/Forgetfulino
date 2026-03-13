@@ -62,6 +62,28 @@ Linux
 
 ------------------------------------------------------------
 
+## Watcher & Decoder app (Windows, macOS, Linux)
+
+A small desktop app lets you:
+
+- **Watcher**: Monitor a sketch folder and auto-run the generator when `.ino` files change (so the library does not complain about missing headers).
+- **Decoder**: Paste the compressed string from the Serial Monitor and decompress to view or copy the recovered source.
+- **System tray**: Minimize to the tray so it stays out of the way.
+- **Configurable** sketch path and **multilingual** interface (EN/IT, auto-detected).
+
+Install and run:
+
+```bash
+pip install -r tools/requirements-watcher.txt
+python tools/forgetfulino_watcher_app.py
+```
+
+To get a **standalone app** (no Python needed to run): **Windows** → `tools\build_app.bat` → `dist\ForgetfulinoWatcher\ForgetfulinoWatcher.exe`; **macOS / Linux** → `chmod +x tools/build_app.sh` then `./tools/build_app.sh` → `dist/ForgetfulinoWatcher/ForgetfulinoWatcher`. See `tools/README-Watcher.md` for details.
+
+**Use “Arduino” and forget the Watcher:** run `tools\LaunchArduinoWithForgetfulino.bat` (Windows) or `python tools/launch_arduino_with_forgetfulino.py` (any OS) as your Arduino IDE shortcut — the Watcher starts in the tray (already watching) and Arduino IDE opens; you never have to open the Watcher manually.
+
+------------------------------------------------------------
+
 # Usage
 
 ## 1. Generate the source header
