@@ -5,6 +5,10 @@
   "version": "0.0.1",
   "publisher": "forgetfulino",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IamTheVector/Forgetfulino.git"
+  },
   "engines": {
     "vscode": "^1.78.0"
   },
