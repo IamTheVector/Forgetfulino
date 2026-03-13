@@ -318,6 +318,6 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
-  out.appendLine('[Forgetfulino] Extension activated.');
+  out.appendLine('[Forgetfulino] Extension active.');
 }
 
