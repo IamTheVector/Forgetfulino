@@ -1,0 +1,158 @@
+{
+  "name": "forgetfulino-arduino-ide-extension",
+  "displayName": "Forgetfulino (Arduino IDE)",
+  "description": "Generate Forgetfulino headers automatically from the Arduino IDE 2.x editor.",
+  "version": "0.0.1",
+  "publisher": "forgetfulino",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IamTheVector/Forgetfulino.git"
+  },
+  "engines": {
+    "vscode": "^1.78.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "*",
+    "workspaceContains:**/*.ino",
+    "onCommand:forgetfulino.generateHeaders",
+    "onCommand:forgetfulino.decodeFromSelection",
+    "onCommand:forgetfulino.activateIncludeCommentsInDump",
+    "onCommand:forgetfulino.deactivateIncludeCommentsInDump",
+    "onCommand:forgetfulino.injectTemplateNow"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "forgetfulino.generateHeaders",
+        "title": "Forgetfulino: Generate headers"
+      },
+      {
+        "command": "forgetfulino.decodeFromSelection",
+        "title": "Forgetfulino: Decode compressed dump"
+      },
+      {
+        "command": "forgetfulino.activateAutoGenerate",
+        "title": "Forgetfulino: Activate auto-generate on save"
+      },
+      {
+        "command": "forgetfulino.deactivateAutoGenerate",
+        "title": "Forgetfulino: Deactivate auto-generate on save"
+      },
+      {
+        "command": "forgetfulino.activateAutoInject",
+        "title": "Forgetfulino: Activate auto-inject template"
+      },
+      {
+        "command": "forgetfulino.deactivateAutoInject",
+        "title": "Forgetfulino: Deactivate auto-inject template"
+      },
+      {
+        "command": "forgetfulino.activateIncludeCommentsInDump",
+        "title": "Forgetfulino: Click to activate comment in dump"
+      },
+      {
+        "command": "forgetfulino.deactivateIncludeCommentsInDump",
+        "title": "Forgetfulino: Click to deactivate comment in dump"
+      },
+      {
+        "command": "forgetfulino.injectTemplateNow",
+        "title": "Forgetfulino: Inject template now"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "forgetfulino.generateHeaders",
+          "group": "navigation@9",
+          "when": "resourceExtname == .ino || resourceExtname == .cpp || resourceExtname == .c"
+        },
+        {
+          "command": "forgetfulino.activateIncludeCommentsInDump",
+          "group": "navigation@9",
+          "when": "!config.forgetfulino.includeCommentsInDump && (resourceExtname == .ino || resourceExtname == .cpp || resourceExtname == .c)"
+        },
+        {
+          "command": "forgetfulino.deactivateIncludeCommentsInDump",
+          "group": "navigation@9",
+          "when": "config.forgetfulino.includeCommentsInDump && (resourceExtname == .ino || resourceExtname == .cpp || resourceExtname == .c)"
+        },
+        {
+          "command": "forgetfulino.decodeFromSelection",
+          "group": "navigation@9",
+          "when": "resourceExtname == .ino || resourceExtname == .cpp || resourceExtname == .c"
+        },
+        {
+          "command": "forgetfulino.activateAutoGenerate",
+          "group": "navigation@9",
+          "when": "!config.forgetfulino.autoGenerateOnSave && (resourceExtname == .ino || resourceExtname == .cpp || resourceExtname == .c)"
+        },
+        {
+          "command": "forgetfulino.deactivateAutoGenerate",
+          "group": "navigation@9",
+          "when": "config.forgetfulino.autoGenerateOnSave && (resourceExtname == .ino || resourceExtname == .cpp || resourceExtname == .c)"
+        },
+        {
+          "command": "forgetfulino.activateAutoInject",
+          "group": "navigation@9",
+          "when": "!config.forgetfulino.autoInjectTemplate && resourceExtname == .ino"
+        },
+        {
+          "command": "forgetfulino.deactivateAutoInject",
+          "group": "navigation@9",
+          "when": "config.forgetfulino.autoInjectTemplate && resourceExtname == .ino"
+        },
+        {
+          "command": "forgetfulino.injectTemplateNow",
+          "group": "navigation@9",
+          "when": "resourceExtname == .ino"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Forgetfulino",
+      "properties": {
+        "forgetfulino.libraryRoot": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Optional. Absolute path to the `Forgetfulino` Arduino library folder. If empty, the extension tries to auto-detect it from the Arduino IDE context (Sketchbook/libraries/Forgetfulino)."
+        },
+        "forgetfulino.autoGenerateOnSave": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "If true, generate headers whenever a `.ino`, `.cpp`, or `.c` file is saved."
+        },
+        "forgetfulino.autoInjectTemplate": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "If true, new/empty .ino sketches that do not contain Forgetfulino will receive a basic Forgetfulino template automatically on first save."
+        },
+        "forgetfulino.includeCommentsInDump": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "If true, the embedded sketch (plain and compressed) includes comments. If false, comments are stripped before storing."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile",
+    "package": "vsce package --allow-star-activation"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/vscode": "^1.78.0",
+    "@vscode/vsce": "^3.7.1",
+    "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "vscode-arduino-api": "^0.1.2"
+  }
+}
+
