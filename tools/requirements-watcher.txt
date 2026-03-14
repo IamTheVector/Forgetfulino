@@ -1,9 +1,0 @@
-# Forgetfulino Watcher & Decoder GUI — install with:
-#   pip install -r tools/requirements-watcher.txt
-#
-# Then run: python tools/forgetfulino_watcher_app.py
-
-customtkinter>=5.2.0
-watchdog>=3.0.0
-pystray>=0.19.0
-Pillow>=9.0.0

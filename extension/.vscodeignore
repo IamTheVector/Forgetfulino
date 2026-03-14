@@ -1,7 +1,0 @@
-**/node_modules/**
-**/*.ts
-tsconfig.json
-.gitignore
-.vscodeignore
-.vscode/**
-
