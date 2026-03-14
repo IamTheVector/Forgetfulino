@@ -125,10 +125,17 @@ function applyInjectToExistingFile(text: string): string | null {
 function tryAutoDetectLibraryRoot(arduino: ArduinoContext | undefined): string | undefined {
   // ArduinoContext.userDirPath is the sketchbook path (directories.user)
   // Standard library install: <sketchbook>/libraries/Forgetfulino
+  // For development / custom setups we also support <sketchbook>/libraries/Forgetfulino-main
   const userDir = (arduino as any)?.userDirPath as string | undefined;
   if (!userDir) return undefined;
-  const candidate = path.join(userDir, 'libraries', 'Forgetfulino');
-  if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) return candidate;
+  const librariesDir = path.join(userDir, 'libraries');
+  const candidates = ['Forgetfulino', 'Forgetfulino-main'];
+  for (const name of candidates) {
+    const candidate = path.join(librariesDir, name);
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
+      return candidate;
+    }
+  }
   return undefined;
 }
 

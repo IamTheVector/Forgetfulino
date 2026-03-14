@@ -484,11 +484,16 @@ Feel free to submit issues or pull requests.
 
 ## Acknowledgements
 
-- **lunastrod (Reddit)** – For inspiring the focus on precise library versioning. Forgetfulino now annotates each `#include` in the recovered source with the corresponding library version (when available), so you can reliably recreate the original build environment.
-- **kahveciderin (Reddit)** – For pushing toward a more memory‑oriented design and highlighting how easily a missing `#include` or forgotten library could prevent the source from ever being shown. This led to automatic Forgetfulino injection into new Arduino sketches and a more robust, fail‑safe workflow.
-- **J-M-L (Arduino community)** – For motivating multi‑file sketch support. Forgetfulino now handles multiple `.ino` and `.cpp` files in a sketch folder, preserving their order and boundaries in the embedded source.
-- **robtillaart (Arduino Forum)** – For suggesting the use of compression. Forgetfulino now offers an optional Base85‑compressed representation of the source, significantly reducing flash usage when needed.
-- **ptillisch (Arduino Team, Arduino Forum)** – For pointing out the possibility of implementing an IDE extension. The dedicated Arduino IDE 2.x extension for Forgetfulino has been a real game changer for usability and automation.
+- **lunastrod (Reddit)** – For inspiring the focus on precise library versioning. Forgetfulino now annotates 
+each `#include` in the recovered source with the corresponding library version (when available), so you can reliably recreate the original build environment.
+- **kahveciderin (Reddit)** – For pushing toward a more memory‑oriented design and highlighting how easily a 
+missing `#include` or forgotten library could prevent the source from ever being shown. This led to automatic Forgetfulino injection into new Arduino sketches and a more robust, fail‑safe workflow.
+- **J-M-L (Arduino community)** – For motivating multi‑file sketch support. Forgetfulino now handles 
+multiple `.ino` and `.cpp` files in a sketch folder, preserving their order and boundaries in the embedded source.
+- **robtillaart (Arduino Forum)** – For suggesting the use of compression. Forgetfulino now offers an optional
+ Base85‑compressed representation of the source, significantly reducing flash usage when needed.
+- **ptillisch (Arduino Team, Arduino Forum)** – For pointing out the possibility of implementing an IDE 
+extension. The dedicated Arduino IDE 2.x extension for Forgetfulino has been a real game changer for usability and automation.
 
 ------------------------------------------------------------
 
