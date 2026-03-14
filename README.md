@@ -7,8 +7,7 @@ This repository contains:
   - `src/` (Forgetfulino library sources and generated headers)
   - `examples/` (Arduino example sketches)
   - `tools/` (lightweight helper scripts, if any)
-  - `extension/` (packaged IDE extension VSIX)
-  - `extensions/README-Extensions.txt` (how to install the VSIX)
+  - `extensions/` (packaged IDE extension VSIX + `README-Extensions.txt` explaining how to install it)
   - `README.md` (user documentation for the Arduino library)
 - **extension build/** – the full development project for the Arduino IDE 2.x extension (TypeScript sources, config files, etc.). This **is not part of the Arduino library ZIP**.
 
