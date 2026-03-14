@@ -1,40 +1,54 @@
-Forgetfulino – IDE Extensions
-=============================
+Forgetfulino – IDE Extension
+============================
 
-This folder is meant to contain ONLY lightweight build artifacts related to the Forgetfulino Arduino IDE 2.x extension, NOT the full extension development project.
+This folder contains the **packaged Forgetfulino Arduino IDE 2.x extension** (`.vsix` file).
 
-What should be stored here
+It is intentionally small and does **not** contain the full development project (`node_modules`, TypeScript sources, etc.).
+
+Files you should find here
 --------------------------
 
-- The packaged extension file:
-  - `forgetfulino-arduino-ide-extension-<version>.vsix`
-- Optional:
-  - A short changelog for the extension
-  - Additional README files or release notes
+- `forgetfulino-arduino-ide-extension-<version>.vsix`
+- `README-Extensions.txt` (this file)
 
-What must NOT be stored here
-----------------------------
+How to install the extension (manual install)
+---------------------------------------------
 
-- No `node_modules/` folders
-- No full TypeScript sources of the extension
-- No build caches or large development-only artifacts
+1. **Close Arduino IDE 2.x.**
 
-Those development files belong in the separate `extension-build` (or similar) folder at the repository root and are NOT distributed as part of the Arduino library ZIP.
+2. Locate your **`.arduinoIDE`** configuration folder:
 
-How the user installs the extension
------------------------------------
+   - **Windows**: `C:\Users\<your_user>\.arduinoIDE\`
+   - **macOS**: `/Users/<your_user>/.arduinoIDE/`
+   - **Linux**: `/home/<your_user>/.arduinoIDE/`
 
-1. Locate the VSIX file in this folder, e.g.:
+3. Inside that folder, locate (or create) the subfolder:
 
-   `forgetfulino-arduino-ide-extension-0.0.1.vsix`
+   - `.arduinoIDE\extensions\`
 
-2. Open **Arduino IDE 2.x**.
-3. Open the **Extensions** view.
-4. Use **“Install from VSIX…”**.
-5. Select the Forgetfulino VSIX file.
-6. Restart Arduino IDE if requested.
+4. Copy the Forgetfulino extension:
 
-After installation, the Forgetfulino extension will:
+   - Option A (recommended):  
+     copy **only** the file  
+     `forgetfulino-arduino-ide-extension-<version>.vsix`  
+     into `.arduinoIDE/extensions/`.
+
+   - Option B:  
+     copy the entire `extensions` folder from the Forgetfulino library  
+     into your `.arduinoIDE/` folder, so you end up with for example:  
+     `.arduinoIDE/extensions/forgetfulino-arduino-ide-extension-0.0.1.vsix`.
+
+5. **Start Arduino IDE 2.x** again.
+
+6. Verify that the plugin was deployed:
+
+   - Open the folder:
+     - `.arduinoIDE/deployedPlugins/`
+   - Check that there is a file or folder whose name looks like  
+     `forgetfulino-arduino-ide-extension-0.0.1` (or similar containing **“Forgetfulino”**).
+
+Once deployed, the Forgetfulino extension will:
+
 - auto-generate the Forgetfulino headers on save (if enabled),
 - optionally auto-inject a Forgetfulino template into new sketches,
 - provide commands to generate headers and decode compressed dumps.
