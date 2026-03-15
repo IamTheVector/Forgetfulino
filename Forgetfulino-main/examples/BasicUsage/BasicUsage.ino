@@ -1,26 +1,27 @@
 #include <Forgetfulino.h>
 
+// Basic example:
+// - prints a compressed dump once at boot
+// - you can decode it from the IDE using
+//   “Forgetfulino: Decode compressed dump”
+
 void setup() {
   Serial.begin(115200);
   delay(2000);
 
   Forgetfulino.begin();
 
-  // SCELTA 1: vuoi il codice sorgente leggibile subito (ma pesante in flash)?
-  // Scommenta la riga sotto per stampare tutto lo sketch originale:
+  // Option 1: readable plain-text source (larger in flash).
+  // Uncomment to dump the full original sketch:
   //
   // Forgetfulino.dumpSource();
 
-  // SCELTA 2: vuoi il pacchetto compresso Base85?
-  // Questo stampa una sola stringa, che puoi copiare e decomprimere
-  // offline con lo script fornito (batch / forgetfulino.cc, ecc.).
+  // Option 2: compressed package (recommended).
+  // This prints a single Base64 line that you can copy
+  // and decode with the Forgetfulino IDE extension.
   Forgetfulino.dumpCompressed();
 }
 
 void loop() {
-  // Non facciamo nulla nel loop.
+  // Nothing here – this example only dumps once in setup.
 }
-
-
-
-

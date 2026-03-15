@@ -11,14 +11,22 @@ private:
 public:
     ForgetfulinoClass();
 
-    // Initialize the library (optional, kept for future use)
+    // Initialize the library and announce on Serial
     void begin();
 
-    // Dump the original sketch source over Serial
+    // Dump the original sketch source over Serial immediately
     void dumpSource();
 
-    // Dump the Base85-compressed representation of the sketch over Serial
+    // Dump the compressed representation of the sketch over Serial immediately
     void dumpCompressed();
+
+    // Poll Serial and, when the keyword "forgetfulino" (any case) is received,
+    // dump the original sketch source. Intended to be called from loop().
+    void dumpSource_OnDemand();
+
+    // Poll Serial and, when the keyword "forgetfulino" (any case) is received,
+    // dump the compressed sketch. Intended to be called from loop().
+    void dumpCompressed_OnDemand();
 };
 
 extern ForgetfulinoClass Forgetfulino;

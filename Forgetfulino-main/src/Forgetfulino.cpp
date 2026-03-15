@@ -11,6 +11,7 @@ ForgetfulinoClass::ForgetfulinoClass()
 void ForgetfulinoClass::begin() {
     if (!initialized) {
         initialized = true;
+        Serial.println(F("Forgetfulino is here"));
     }
 }
 
@@ -116,7 +117,8 @@ void ForgetfulinoClass::dumpCompressed() {
     Serial.println();
 
     // Dump compressed bytes as Base64 so they can be easily copied and decoded on the PC.
-    // We keep it on a single logical line (no '\n' inside the loop) to make copy/paste easier.
+    // We keep it on a single logical line (no '\n' inside the loop) to make copy/paste easier),
+    // with only a light delay to avoid overwhelming the serial buffer.
     unsigned long groupCount = 0;
     for (unsigned long i = 0; i < compressedSize; i += 3) {
         const uint8_t b0 = readFlashByte(&forgetfulino_compressed_data[i]);
@@ -143,15 +145,121 @@ void ForgetfulinoClass::dumpCompressed() {
             Serial.print('=');
         }
 
-        // Avoid overwhelming Serial: pause periodically.
+        // Avoid overwhelming Serial: pause periodically, but keep the transfer fast.
         groupCount++;
-        if (groupCount % 19UL == 0UL) {
+        if (groupCount % 19UL == 0UL) { // about every 76 characters
             delay(1);
         }
     }
 
     Serial.println();
     Serial.println(F("-------------------------------------------"));
+}
+
+// Helper to check for the keyword "forgetfulino" on Serial, case-insensitive.
+// Returns true when a full command has been received and consumed.
+static bool forgetfulino_checkSerialTrigger() {
+    static char buffer[16];
+    static uint8_t index = 0;
+
+    while (Serial.available() > 0) {
+        char c = Serial.read();
+
+        // Treat newline or carriage return as end of command
+        if (c == '\n' || c == '\r') {
+            if (index == 0) {
+                continue;
+            }
+            buffer[index] = '\0';
+
+            // Trim leading and trailing spaces/tabs
+            uint8_t start = 0;
+            while (buffer[start] == ' ' || buffer[start] == '\t') {
+                ++start;
+            }
+            uint8_t end = index;
+            while (end > start && (buffer[end - 1] == ' ' || buffer[end - 1] == '\t')) {
+                --end;
+            }
+
+            // Case-insensitive compare with "forgetfulino"
+            const char* target = "forgetfulino";
+            bool match = true;
+
+            // First, lengths must match
+            uint8_t targetLen = 11; // strlen("forgetfulino")
+            if (end - start != targetLen) {
+                match = false;
+            } else {
+                for (uint8_t i = 0; i < targetLen; ++i) {
+                    char a = buffer[start + i];
+                    char b = target[i];
+                    if (a >= 'A' && a <= 'Z') a = a - 'A' + 'a';
+                    if (b >= 'A' && b <= 'Z') b = b - 'A' + 'a';
+                    if (a != b) {
+                        match = false;
+                        break;
+                    }
+                }
+            }
+
+            index = 0;
+            return match;
+        }
+
+        // Build up the command word (we will trim whitespace at the end)
+        if (index < sizeof(buffer) - 1) {
+            buffer[index++] = c;
+        }
+
+        // Trigger even without newline: e.g. Serial Monitor "No line ending" sends only the 11 chars
+        if (index == 11) {
+            buffer[11] = '\0';
+            uint8_t start = 0;
+            while (buffer[start] == ' ' || buffer[start] == '\t') {
+                ++start;
+            }
+            uint8_t end = 11;
+            while (end > start && (buffer[end - 1] == ' ' || buffer[end - 1] == '\t')) {
+                --end;
+            }
+            const char* target = "forgetfulino";
+            uint8_t targetLen = 11;
+            bool match = (end - start == targetLen);
+            if (match) {
+                for (uint8_t i = 0; i < targetLen; ++i) {
+                    char a = buffer[start + i];
+                    char b = target[i];
+                    if (a >= 'A' && a <= 'Z') a = a - 'A' + 'a';
+                    if (b >= 'A' && b <= 'Z') b = b - 'A' + 'a';
+                    if (a != b) {
+                        match = false;
+                        break;
+                    }
+                }
+            }
+            if (match) {
+                index = 0;
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+void ForgetfulinoClass::dumpSource_OnDemand() {
+    // No need to require begin(): respond to "forgetfulino" whenever data is available
+    if (forgetfulino_checkSerialTrigger()) {
+        dumpSource();
+    }
+}
+
+void ForgetfulinoClass::dumpCompressed_OnDemand() {
+    // No need to require begin(): respond to "forgetfulino" whenever data is available
+    if (forgetfulino_checkSerialTrigger()) {
+        dumpCompressed();
+    }
 }
 
 // Global library instance

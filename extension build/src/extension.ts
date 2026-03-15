@@ -38,8 +38,11 @@ function shouldAutoInjectTemplate(doc: vscode.TextDocument): boolean {
   return normalized === DEFAULT_ARDUINO_SKELETON;
 }
 
-function buildInjectTemplate(): string {
-  return `#include <Forgetfulino.h>
+type InjectMode = 'setup' | 'loop';
+
+function buildInjectTemplate(mode: InjectMode): string {
+  if (mode === 'setup') {
+    return `#include <Forgetfulino.h>
 
 void setup() {
   Serial.begin(115200);
@@ -53,6 +56,20 @@ void setup() {
 }
 
 void loop() {
+}
+`;
+  }
+  // mode === 'loop': dump only when user types "forgetfulino" in Serial
+  return `#include <Forgetfulino.h>
+
+void setup() {
+  Serial.begin(115200);
+  Forgetfulino.begin();
+}
+
+void loop() {
+  Forgetfulino.dumpCompressed_OnDemand();
+  // Forgetfulino.dumpSource_OnDemand();
 }
 `;
 }
@@ -72,11 +89,48 @@ const INJECT_BLOCK_WITH_SERIAL = `  Serial.begin(115200);
   // Forgetfulino.dumpSource();
 `;
 
+/** Setup-only block for loop mode (no dump in setup). */
+const INJECT_BLOCK_SETUP_LOOP_MODE_AFTER_SERIAL = `  delay(2000);
+  Forgetfulino.begin();
+`;
+
+const INJECT_BLOCK_SETUP_LOOP_MODE_WITH_SERIAL = `  Serial.begin(115200);
+  delay(2000);
+  Forgetfulino.begin();
+`;
+
+/** Block to add at start of loop() for on-demand dump. */
+const INJECT_BLOCK_LOOP_ONDEMAND = `  Forgetfulino.dumpCompressed_OnDemand();
+  // Forgetfulino.dumpSource_OnDemand();
+`;
+
 /**
- * Apply inject to an existing file: add include at top and block in setup.
+ * Find the extent of a function body (after "void setup() {" or "void loop() {").
+ * Returns [startIndex, endIndex] of the body, or null.
+ */
+function findFunctionBody(text: string, funcName: 'setup' | 'loop'): [number, number] | null {
+  const regex = funcName === 'setup'
+    ? /void\s+setup\s*\(\s*\)\s*\{/
+    : /void\s+loop\s*\(\s*\)\s*\{/;
+  const match = text.match(regex);
+  if (!match || match.index === undefined) return null;
+  const bodyStart = match.index + match[0].length;
+  let depth = 1;
+  let pos = bodyStart;
+  while (pos < text.length && depth > 0) {
+    const ch = text[pos];
+    if (ch === '{') depth++;
+    else if (ch === '}') depth--;
+    pos++;
+  }
+  return [bodyStart, pos];
+}
+
+/**
+ * Apply inject to an existing file: add include at top and block(s) in setup (and loop if mode is 'loop').
  * Returns new content or null if Forgetfulino already present (do nothing).
  */
-function applyInjectToExistingFile(text: string): string | null {
+function applyInjectToExistingFile(text: string, mode: InjectMode): string | null {
   if (isForgetfulinoPresent(text)) return null;
 
   let out = text;
@@ -86,40 +140,44 @@ function applyInjectToExistingFile(text: string): string | null {
     out = '#include <Forgetfulino.h>\n\n' + out.trimStart();
   }
 
-  // 2. Find void setup() and insert block
-  const setupRegex = /void\s+setup\s*\(\s*\)\s*\{/;
-  const setupMatch = out.match(setupRegex);
-  if (!setupMatch || setupMatch.index === undefined) return out;
-
-  const setupStart = setupMatch.index + setupMatch[0].length;
-  let depth = 1;
-  let pos = setupStart;
-  while (pos < out.length && depth > 0) {
-    const ch = out[pos];
-    if (ch === '{') depth++;
-    else if (ch === '}') depth--;
-    pos++;
-  }
-  const setupEnd = pos;
+  const setupRange = findFunctionBody(out, 'setup');
+  if (!setupRange) return out;
+  const [setupStart, setupEnd] = setupRange;
   const setupBody = out.slice(setupStart, setupEnd);
   const hasSerialInSetup = /Serial\.begin\s*\(/.test(setupBody);
 
-  const block = hasSerialInSetup ? INJECT_BLOCK_AFTER_SERIAL : INJECT_BLOCK_WITH_SERIAL;
-
-  let insertPos: number;
-  if (hasSerialInSetup) {
-    const serialIdx = out.indexOf('Serial.begin', setupStart);
-    if (serialIdx === -1) {
-      insertPos = setupStart;
-    } else {
-      const lineEnd = out.indexOf('\n', serialIdx);
+  if (mode === 'setup') {
+    const block = hasSerialInSetup ? INJECT_BLOCK_AFTER_SERIAL : INJECT_BLOCK_WITH_SERIAL;
+    let insertPos: number;
+    if (hasSerialInSetup) {
+      const serialIdx = out.indexOf('Serial.begin', setupStart);
+      const lineEnd = serialIdx === -1 ? -1 : out.indexOf('\n', serialIdx);
       insertPos = lineEnd !== -1 ? lineEnd + 1 : setupStart;
+    } else {
+      insertPos = setupStart;
     }
-  } else {
-    insertPos = setupStart;
+    out = out.slice(0, insertPos) + block + out.slice(insertPos);
+    return out;
   }
 
-  out = out.slice(0, insertPos) + block + out.slice(insertPos);
+  // mode === 'loop': add begin() in setup, on-demand call in loop
+  const setupBlock = hasSerialInSetup
+    ? INJECT_BLOCK_SETUP_LOOP_MODE_AFTER_SERIAL
+    : INJECT_BLOCK_SETUP_LOOP_MODE_WITH_SERIAL;
+  let setupInsertPos: number;
+  if (hasSerialInSetup) {
+    const serialIdx = out.indexOf('Serial.begin', setupStart);
+    const lineEnd = serialIdx === -1 ? -1 : out.indexOf('\n', serialIdx);
+    setupInsertPos = lineEnd !== -1 ? lineEnd + 1 : setupStart;
+  } else {
+    setupInsertPos = setupStart;
+  }
+  out = out.slice(0, setupInsertPos) + setupBlock + out.slice(setupInsertPos);
+
+  const loopRange = findFunctionBody(out, 'loop');
+  if (!loopRange) return out;
+  const [loopStart] = loopRange;
+  out = out.slice(0, loopStart) + INJECT_BLOCK_LOOP_ONDEMAND + out.slice(loopStart);
   return out;
 }
 
@@ -571,6 +629,12 @@ async function decodeFromSelection(out: vscode.OutputChannel): Promise<void> {
     return;
   }
 
+  // Range to delete after successful decode: selection or full line (store URI so we can edit after focus change)
+  const docUri = editor.document.uri;
+  const rangeToDelete: vscode.Range = !sel.isEmpty
+    ? sel
+    : editor.document.lineAt(sel.active.line).range;
+
   try {
     // New pipeline: Base64 → deflate (raw) → UTF‑8 text
     const cleaned = line.replace(/\s+/g, '');
@@ -584,7 +648,15 @@ async function decodeFromSelection(out: vscode.OutputChannel): Promise<void> {
     out.appendLine('\nForgetfulino output:');
     out.appendLine(withVersions);
 
-    // Also open in a new editor for easy copy
+    // Remove the pasted Base64 line/selection from the original document first (by URI, so it works after we switch editor)
+    const workspaceEdit = new vscode.WorkspaceEdit();
+    workspaceEdit.delete(docUri, rangeToDelete);
+    const deleted = await vscode.workspace.applyEdit(workspaceEdit);
+    if (!deleted) {
+      out.appendLine('[Forgetfulino] Could not remove the pasted line from the editor.');
+    }
+
+    // Open decoded content in a new editor for easy copy
     const doc = await vscode.workspace.openTextDocument({
       content: withVersions,
       language: 'cpp'
@@ -649,16 +721,25 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('forgetfulino.activateAutoInject', async () => {
+    vscode.commands.registerCommand('forgetfulino.activateAutoInjectSetup', async () => {
       await setForgetfulinoConfig('autoInjectTemplate', true);
-      vscode.window.showInformationMessage('Forgetfulino: auto-inject template activated.');
+      await vscode.workspace.getConfiguration('forgetfulino').update('autoInjectMode', 'setup', vscode.ConfigurationTarget.Global);
+      vscode.window.showInformationMessage('Forgetfulino: auto-inject in setup (dump every reboot) activated.');
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('forgetfulino.activateAutoInjectLoop', async () => {
+      await setForgetfulinoConfig('autoInjectTemplate', true);
+      await vscode.workspace.getConfiguration('forgetfulino').update('autoInjectMode', 'loop', vscode.ConfigurationTarget.Global);
+      vscode.window.showInformationMessage('Forgetfulino: auto-inject in loop (dump when you type forgetfulino in serial) activated.');
     })
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand('forgetfulino.deactivateAutoInject', async () => {
       await setForgetfulinoConfig('autoInjectTemplate', false);
-      vscode.window.showInformationMessage('Forgetfulino: auto-inject template deactivated.');
+      vscode.window.showInformationMessage('Forgetfulino: auto-inject deactivated.');
     })
   );
 
@@ -676,43 +757,59 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand('forgetfulino.injectTemplateNow', async () => {
-      const editor = vscode.window.activeTextEditor;
-      if (!editor || path.extname(editor.document.uri.fsPath).toLowerCase() !== '.ino') {
-        vscode.window.showErrorMessage('Forgetfulino: open a .ino file first.');
-        return;
-      }
-      const text = editor.document.getText();
-      const isNewFile = !text.trim() || text.trim().replace(/\s+/g, '') === DEFAULT_ARDUINO_SKELETON;
+  async function runInjectCommand(mode: InjectMode): Promise<void> {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || path.extname(editor.document.uri.fsPath).toLowerCase() !== '.ino') {
+      vscode.window.showErrorMessage('Forgetfulino: open a .ino file first.');
+      return;
+    }
+    const text = editor.document.getText();
+    const isNewFile = !text.trim() || text.trim().replace(/\s+/g, '') === DEFAULT_ARDUINO_SKELETON;
 
-      if (isNewFile) {
-        const template = buildInjectTemplate();
-        await editor.edit((builder) => {
-          const fullRange = new vscode.Range(
-            editor.document.positionAt(0),
-            editor.document.positionAt(text.length)
-          );
-          builder.replace(fullRange, template);
-        });
-        vscode.window.showInformationMessage('Forgetfulino: template injected.');
-        return;
-      }
-
-      const newContent = applyInjectToExistingFile(text);
-      if (newContent === null) {
-        vscode.window.showInformationMessage('Forgetfulino: already present, nothing to add.');
-        return;
-      }
+    if (isNewFile) {
+      const template = buildInjectTemplate(mode);
       await editor.edit((builder) => {
         const fullRange = new vscode.Range(
           editor.document.positionAt(0),
           editor.document.positionAt(text.length)
         );
-        builder.replace(fullRange, newContent);
+        builder.replace(fullRange, template);
       });
-      vscode.window.showInformationMessage('Forgetfulino: inject applied (include + setup block).');
-    })
+      vscode.window.showInformationMessage(
+        mode === 'setup'
+          ? 'Forgetfulino: template injected (dump in setup).'
+          : 'Forgetfulino: template injected (dump on demand in loop).'
+      );
+      return;
+    }
+
+    const newContent = applyInjectToExistingFile(text, mode);
+    if (newContent === null) {
+      vscode.window.showInformationMessage('Forgetfulino: already present, nothing to add.');
+      return;
+    }
+    await editor.edit((builder) => {
+      const fullRange = new vscode.Range(
+        editor.document.positionAt(0),
+        editor.document.positionAt(text.length)
+      );
+      builder.replace(fullRange, newContent);
+    });
+    vscode.window.showInformationMessage(
+      mode === 'setup'
+        ? 'Forgetfulino: inject applied (include + setup dump).'
+        : 'Forgetfulino: inject applied (include + begin in setup, on-demand in loop).'
+    );
+  }
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('forgetfulino.injectTemplateSetup', () => runInjectCommand('setup'))
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand('forgetfulino.injectTemplateLoop', () => runInjectCommand('loop'))
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand('forgetfulino.injectTemplateNow', () => runInjectCommand('setup'))
   );
 
   context.subscriptions.push(
@@ -724,7 +821,8 @@ export function activate(context: vscode.ExtensionContext): void {
       if (autoInject && shouldAutoInjectTemplate(doc)) {
         const editor = vscode.window.visibleTextEditors.find((e) => e.document === doc);
         if (editor) {
-          const template = buildInjectTemplate();
+          const mode = cfg.get<'setup' | 'loop'>('autoInjectMode', 'setup');
+          const template = buildInjectTemplate(mode);
           await editor.edit((builder) => {
             const fullRange = new vscode.Range(
               doc.positionAt(0),

@@ -23,7 +23,11 @@
     "onCommand:forgetfulino.decodeFromSelection",
     "onCommand:forgetfulino.activateIncludeCommentsInDump",
     "onCommand:forgetfulino.deactivateIncludeCommentsInDump",
-    "onCommand:forgetfulino.injectTemplateNow"
+    "onCommand:forgetfulino.injectTemplateNow",
+    "onCommand:forgetfulino.injectTemplateSetup",
+    "onCommand:forgetfulino.injectTemplateLoop",
+    "onCommand:forgetfulino.activateAutoInjectSetup",
+    "onCommand:forgetfulino.activateAutoInjectLoop"
   ],
   "contributes": {
     "commands": [
@@ -44,12 +48,24 @@
         "title": "Forgetfulino: Deactivate auto-generate on save"
       },
       {
-        "command": "forgetfulino.activateAutoInject",
-        "title": "Forgetfulino: Activate auto-inject template"
+        "command": "forgetfulino.injectTemplateSetup",
+        "title": "Inject in setup (show dump every reboot)"
+      },
+      {
+        "command": "forgetfulino.injectTemplateLoop",
+        "title": "Inject in loop (show dump when you write forgetfulino in serial)"
+      },
+      {
+        "command": "forgetfulino.activateAutoInjectSetup",
+        "title": "Inject in setup (show dump every reboot)"
+      },
+      {
+        "command": "forgetfulino.activateAutoInjectLoop",
+        "title": "Inject in loop (show dump when you write forgetfulino in serial)"
       },
       {
         "command": "forgetfulino.deactivateAutoInject",
-        "title": "Forgetfulino: Deactivate auto-inject template"
+        "title": "Deactivate"
       },
       {
         "command": "forgetfulino.activateIncludeCommentsInDump",
@@ -62,6 +78,16 @@
       {
         "command": "forgetfulino.injectTemplateNow",
         "title": "Forgetfulino: Inject template now"
+      }
+    ],
+    "submenus": [
+      {
+        "id": "forgetfulino.injectSubmenu",
+        "label": "Inject"
+      },
+      {
+        "id": "forgetfulino.autoInjectSubmenu",
+        "label": "Auto Inject"
       }
     ],
     "menus": {
@@ -97,19 +123,38 @@
           "when": "config.forgetfulino.autoGenerateOnSave && (resourceExtname == .ino || resourceExtname == .cpp || resourceExtname == .c)"
         },
         {
-          "command": "forgetfulino.activateAutoInject",
+          "submenu": "forgetfulino.injectSubmenu",
           "group": "navigation@9",
-          "when": "!config.forgetfulino.autoInjectTemplate && resourceExtname == .ino"
+          "when": "resourceExtname == .ino"
+        },
+        {
+          "submenu": "forgetfulino.autoInjectSubmenu",
+          "group": "navigation@9",
+          "when": "resourceExtname == .ino"
+        }
+      ],
+      "forgetfulino.injectSubmenu": [
+        {
+          "command": "forgetfulino.injectTemplateSetup",
+          "group": "1_inject"
+        },
+        {
+          "command": "forgetfulino.injectTemplateLoop",
+          "group": "2_inject"
+        }
+      ],
+      "forgetfulino.autoInjectSubmenu": [
+        {
+          "command": "forgetfulino.activateAutoInjectSetup",
+          "group": "1_auto"
+        },
+        {
+          "command": "forgetfulino.activateAutoInjectLoop",
+          "group": "2_auto"
         },
         {
           "command": "forgetfulino.deactivateAutoInject",
-          "group": "navigation@9",
-          "when": "config.forgetfulino.autoInjectTemplate && resourceExtname == .ino"
-        },
-        {
-          "command": "forgetfulino.injectTemplateNow",
-          "group": "navigation@9",
-          "when": "resourceExtname == .ino"
+          "group": "3_auto"
         }
       ]
     },
@@ -130,6 +175,12 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "If true, new/empty .ino sketches that do not contain Forgetfulino will receive a basic Forgetfulino template automatically on first save."
+        },
+        "forgetfulino.autoInjectMode": {
+          "type": "string",
+          "enum": ["setup", "loop"],
+          "default": "setup",
+          "markdownDescription": "When auto-inject is on: 'setup' = dump every reboot; 'loop' = dump only when you type 'forgetfulino' in Serial Monitor."
         },
         "forgetfulino.includeCommentsInDump": {
           "type": "boolean",
