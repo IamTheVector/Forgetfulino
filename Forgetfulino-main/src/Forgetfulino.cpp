@@ -116,6 +116,7 @@ void ForgetfulinoClass::dumpCompressed() {
     Serial.println();
 
     // Dump compressed bytes as Base64 so they can be easily copied and decoded on the PC.
+    // We keep it on a single logical line (no '\n' inside the loop) to make copy/paste easier.
     unsigned long groupCount = 0;
     for (unsigned long i = 0; i < compressedSize; i += 3) {
         const uint8_t b0 = readFlashByte(&forgetfulino_compressed_data[i]);
@@ -142,10 +143,9 @@ void ForgetfulinoClass::dumpCompressed() {
             Serial.print('=');
         }
 
-        // Avoid overwhelming Serial: break line and pause periodically.
+        // Avoid overwhelming Serial: pause periodically.
         groupCount++;
         if (groupCount % 19UL == 0UL) {
-            Serial.println();
             delay(1);
         }
     }

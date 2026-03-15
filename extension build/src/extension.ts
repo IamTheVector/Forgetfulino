@@ -490,9 +490,11 @@ async function generateHeadersCommand(out: vscode.OutputChannel): Promise<void> 
 }
 
 function stripSerialTimestamp(raw: string): string {
-  // Single line from Serial Monitor: strip "HH:MM:SS.mmm -> " at the start, then trim and collapse whitespace (like old working VSIX)
-  const one = raw.replace(/^\d+:\d+:\d+\.\d+\s*->\s*/, '').trim();
-  return one.replace(/\s+/g, '');
+  // Serial Monitor may prefix EACH line with "HH:MM:SS.mmm -> ".
+  // Remove that prefix on all lines, then trim.
+  return raw
+    .replace(/^\d+:\d+:\d+\.\d+\s*->\s*/gm, '')
+    .trim();
 }
 
 /** Sketchbook libraries path (e.g. .../Arduino/libraries). Used to resolve library versions for #include comments. */
