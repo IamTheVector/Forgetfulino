@@ -32,8 +32,8 @@ function shouldAutoInjectTemplate(doc: vscode.TextDocument): boolean {
   const text = doc.getText();
   if (isForgetfulinoPresent(text)) return false;
   const trimmed = text.trim();
-  if (!trimmed.length) return true; // file vuoto = nuovo
-  // Solo file "nuovi": esattamente il template default di Arduino (setup/loop con commenti standard)
+  if (!trimmed.length) return true; // empty file = new sketch
+  // Only treat brand‑new files: exactly the default Arduino template (setup/loop with standard comments)
   const normalized = trimmed.replace(/\s+/g, '');
   return normalized === DEFAULT_ARDUINO_SKELETON;
 }
@@ -47,8 +47,8 @@ void setup() {
 
   Forgetfulino.begin();
 
-  // TODO: il tuo codice qui...
-  // Quando vuoi recuperare lo sketch, chiama:
+  // TODO: your code here...
+  // When you want to recover the sketch, call:
   Forgetfulino.dumpCompressed();
 }
 
