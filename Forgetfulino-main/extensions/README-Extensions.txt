@@ -28,12 +28,6 @@ How to install the extension (manual install)
 
 4. Copy the Forgetfulino extension:
 
-   - Option A (recommended):  
-     copy **only** the file  
-     `forgetfulino-arduino-ide-extension-<version>.vsix`  
-     into `.arduinoIDE/extensions/`.
-
-   - Option B:  
      copy the entire `extensions` folder from the Forgetfulino library  
      into your `.arduinoIDE/` folder, so you end up with for example:  
      `.arduinoIDE/extensions/forgetfulino-arduino-ide-extension-0.0.1.vsix`.
@@ -52,4 +46,6 @@ Once deployed, the Forgetfulino extension will:
 - auto-generate the Forgetfulino headers on save (if enabled),
 - optionally auto-inject a Forgetfulino template into new sketches,
 - provide commands to generate headers and decode compressed dumps.
+- For future update please delete `forgetfulino-arduino-ide-extension-0.0.1` (or similar containing **“Forgetfulino”**).
+
 

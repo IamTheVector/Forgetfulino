@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as zlib from 'zlib';
 import type { ArduinoContext } from 'vscode-arduino-api';
 
 const OUTPUT_CHANNEL_NAME = 'Forgetfulino';
@@ -353,112 +354,19 @@ function textToCArray(text: string, varName: string): string {
   return `const char ${varName}[] PROGMEM = {\n${arrayContent}\n};`;
 }
 
-/** Chunk size in chars: C99 requires string literals ≤4095 chars; keep under that to avoid truncation. */
-const COMPRESSED_CHUNK_SIZE = 4095;
-
-function escapeForCStringLiteral(value: string): string {
-  const out: string[] = [];
-  for (const ch of value) {
-    if (ch === '\\') out.push('\\\\');
-    else if (ch === '"') out.push('\\"');
-    else if (ch === '\n') out.push('\\n');
-    else if (ch === '\r') out.push('\\r');
-    else if (ch === '\t') out.push('\\t');
-    else out.push(ch);
-  }
-  return out.join('');
-}
-
-function toCStringLiteral(value: string, varName: string): string {
-  const escaped = escapeForCStringLiteral(value);
-  return `const char ${varName}[] PROGMEM = "${escaped}";`;
-}
-
-/** Generate multiple PROGMEM arrays + pointer table so total size has no compiler limit. */
-function generateCompressedChunks(encoded: string): string {
+function encodeBytesAsCArray(data: Uint8Array, varName: string): string {
   const lines: string[] = [];
-  const chunkNames: string[] = [];
-  for (let i = 0; i < encoded.length; i += COMPRESSED_CHUNK_SIZE) {
-    const chunk = encoded.slice(i, i + COMPRESSED_CHUNK_SIZE);
-    const name = `forgetfulino_compressed_data_${chunkNames.length}`;
-    chunkNames.push(name);
-    lines.push(`const char ${name}[] PROGMEM = "${escapeForCStringLiteral(chunk)}";`);
-  }
-  lines.push('');
-  lines.push(`#define FORGETFULINO_COMPRESSED_CHUNK_SIZE ${COMPRESSED_CHUNK_SIZE}`);
-  lines.push(`const unsigned int forgetfulino_compressed_chunk_count = ${chunkNames.length};`);
-  lines.push(`const unsigned long forgetfulino_compressed_total_len = ${encoded.length}UL;`);
-  lines.push(`const char* const forgetfulino_compressed_chunks[] PROGMEM = { ${chunkNames.join(', ')} };`);
-  return lines.join('\n');
-}
-
-function ascii85Encode(buf: Uint8Array): string {
-  let result = '';
-  const n = buf.length;
-  let i = 0;
-  while (i < n) {
-    const remaining = n - i;
-    const chunk = buf.subarray(i, Math.min(i + 4, n));
-    let value = 0;
-    for (let j = 0; j < 4; j++) {
-      value = (value << 8) | (j < chunk.length ? chunk[j]! : 0);
-    }
-    const tmp: number[] = new Array(5);
-    for (let j = 4; j >= 0; j--) {
-      tmp[j] = (value % 85) + 33;
-      value = Math.floor(value / 85);
-    }
-    let outChars = String.fromCharCode(...tmp);
-    if (remaining < 4) {
-      // drop the extra chars for padded bytes
-      outChars = outChars.substring(0, remaining + 1);
-    }
-    result += outChars;
-    i += 4;
-  }
-  return result;
-}
-
-function ascii85Decode(text: string): Uint8Array {
-  const cleaned = text.replace(/\s+/g, '');
-  const bytes: number[] = [];
-  let i = 0;
-  while (i < cleaned.length) {
-    const remaining = cleaned.length - i;
-    const groupLen = remaining >= 5 ? 5 : remaining;
-    if (groupLen <= 0) break;
-    const group = cleaned.substring(i, i + groupLen);
-    i += groupLen;
-
-    const digits: number[] = new Array(5);
-    for (let j = 0; j < 5; j++) {
-      if (j < groupLen) {
-        digits[j] = group.charCodeAt(j) - 33;
-      } else {
-        digits[j] = 84; // pad with 'u' (84) as per Ascii85
-      }
-    }
-
-    let value = 0;
-    for (let j = 0; j < 5; j++) {
-      value = value * 85 + digits[j];
-    }
-
-    const tmp = [
-      (value >>> 24) & 0xff,
-      (value >>> 16) & 0xff,
-      (value >>> 8) & 0xff,
-      value & 0xff
-    ];
-
-    if (groupLen < 5) {
-      const nBytes = groupLen - 1; // inverse of encode's truncation
-      for (let k = 0; k < nBytes; k++) bytes.push(tmp[k]!);
-    } else {
-      bytes.push(...tmp);
+  let row: string[] = [];
+  for (let i = 0; i < data.length; i++) {
+    const b = data[i]!;
+    row.push(`0x${b.toString(16).padStart(2, '0')}`);
+    if (row.length === 16 || i === data.length - 1) {
+      lines.push('    ' + row.join(', '));
+      row = [];
     }
   }
-  return new Uint8Array(bytes);
+  const body = lines.join(',\n');
+  return `const uint8_t ${varName}[] PROGMEM = {\n${body}\n};`;
 }
 
 function generateSourceHeader(fullSource: string, mainName: string): string {
@@ -491,10 +399,11 @@ const char forgetfulino_sketch_name[] PROGMEM = "${mainName}";
 
 function generateCompressedHeader(fullSource: string): string {
   const bytes = new TextEncoder().encode(fullSource);
-  const encoded = ascii85Encode(bytes);
-  const chunksBlock = generateCompressedChunks(encoded);
+  // True compression: deflate raw data to a compact binary buffer.
+  const compressed = zlib.deflateRawSync(Buffer.from(bytes));
+  const cArray = encodeBytesAsCArray(compressed, 'forgetfulino_compressed_data');
 
-  return `// Forgetfulino generated compressed data
+  return `// Forgetfulino generated compressed data (deflate, Base64-dumped at runtime)
 // AUTO-GENERATED - DO NOT EDIT
 
 #ifndef FORGETFULINO_COMPRESSED_H
@@ -510,10 +419,11 @@ function generateCompressedHeader(fullSource: string): string {
     #define PROGMEM
 #endif
 
-#define FORGETFULINO_USE_CHUNKS 1
-// Base85-compressed sketch source (multiple chunks to avoid "variable too large")
-${chunksBlock}
+// Deflate-compressed sketch source stored as raw bytes.
+${cArray}
 
+// Sizes
+const unsigned long forgetfulino_compressed_size = ${compressed.length}UL;
 // Original uncompressed source size in bytes
 const unsigned int forgetfulino_original_size = ${fullSource.length};
 
@@ -660,8 +570,11 @@ async function decodeFromSelection(out: vscode.OutputChannel): Promise<void> {
   }
 
   try {
-    const bytes = ascii85Decode(line);
-    const decoded = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+    // New pipeline: Base64 → deflate (raw) → UTF‑8 text
+    const cleaned = line.replace(/\s+/g, '');
+    const compressed = Buffer.from(cleaned, 'base64');
+    const decompressed = zlib.inflateRawSync(compressed);
+    const decoded = new TextDecoder('utf-8', { fatal: false }).decode(decompressed);
     const librariesPath = getLibrariesPath();
     const withVersions = addIncludeVersions(decoded, librariesPath);
 
