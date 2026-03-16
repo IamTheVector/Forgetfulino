@@ -4,6 +4,9 @@ Forgetfulino – IDE Extension
 This folder contains the **packaged Forgetfulino Arduino IDE 2.x extension** (`.vsix` file).
 
 It is intentionally small and does **not** contain the full development project (`node_modules`, TypeScript sources, etc.).
+The full extension source code and build project now live here:
+
+  https://github.com/IamTheVector/Forgetfulino-Extension
 
 Files you should find here
 --------------------------

@@ -2,6 +2,10 @@
 
 Forgetfulino is an Arduino library + Arduino IDE 2.x extension that turns every upload into a **self‑contained backup** of your sketch.
 
+This repository contains the **Arduino library** in `Forgetfulino-main/`.  
+The **IDE extension development project** lives in a separate repository:  
+`https://github.com/IamTheVector/Forgetfulino-Extension`.
+
 Your source code is:
 
 - **stored in flash (PROGMEM)** alongside the firmware,
