@@ -71,7 +71,7 @@ void dumpCompressed_OnDemand(const char* trigger = "forgetfulino");
   ```cpp
   Forgetfulino.dumpCompressed_OnDemand("MySecret123");
   ```
-  → matching becomes **case-sensitive**, exact string only (spazi extra all’inizio/fine comunque ignorati).
+  → matching becomes **case-sensitive**, exact string only (ignored trailing and leading spaces).
 
 ------------------------------------------------------------
 
