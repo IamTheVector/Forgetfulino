@@ -156,11 +156,21 @@ void ForgetfulinoClass::dumpCompressed() {
     Serial.println(F("-------------------------------------------"));
 }
 
-// Helper to check for the keyword "forgetfulino" on Serial, case-insensitive.
+// Helper to check for a trigger word on Serial.
+// If trigger == "forgetfulino" (exact case), matching is case-insensitive.
+// Otherwise matching is case-sensitive.
 // Returns true when a full command has been received and consumed.
-static bool forgetfulino_checkSerialTrigger() {
+static bool forgetfulino_checkSerialTrigger(const char* trigger) {
     static char buffer[16];
     static uint8_t index = 0;
+
+    // Default trigger: if user leaves () OR passes an empty string.
+    if (!trigger || trigger[0] == '\0') {
+        trigger = "forgetfulino";
+    }
+    const uint8_t targetLen = static_cast<uint8_t>(strlen(trigger));
+    const bool ignoreCase =
+        (targetLen == 11 && strcmp(trigger, "forgetfulino") == 0);
 
     while (Serial.available() > 0) {
         char c = Serial.read();
@@ -182,20 +192,20 @@ static bool forgetfulino_checkSerialTrigger() {
                 --end;
             }
 
-            // Case-insensitive compare with "forgetfulino"
-            const char* target = "forgetfulino";
+            // Compare with trigger (optionally case-insensitive)
             bool match = true;
 
             // First, lengths must match
-            uint8_t targetLen = 11; // strlen("forgetfulino")
             if (end - start != targetLen) {
                 match = false;
             } else {
                 for (uint8_t i = 0; i < targetLen; ++i) {
                     char a = buffer[start + i];
-                    char b = target[i];
-                    if (a >= 'A' && a <= 'Z') a = a - 'A' + 'a';
-                    if (b >= 'A' && b <= 'Z') b = b - 'A' + 'a';
+                    char b = trigger[i];
+                    if (ignoreCase) {
+                        if (a >= 'A' && a <= 'Z') a = a - 'A' + 'a';
+                        if (b >= 'A' && b <= 'Z') b = b - 'A' + 'a';
+                    }
                     if (a != b) {
                         match = false;
                         break;
@@ -212,26 +222,27 @@ static bool forgetfulino_checkSerialTrigger() {
             buffer[index++] = c;
         }
 
-        // Trigger even without newline: e.g. Serial Monitor "No line ending" sends only the 11 chars
-        if (index == 11) {
-            buffer[11] = '\0';
+        // Trigger even without newline: e.g. Serial Monitor "No line ending"
+        // sends only the N characters (length of trigger word).
+        if (index == targetLen && targetLen > 0) {
+            buffer[targetLen] = '\0';
             uint8_t start = 0;
             while (buffer[start] == ' ' || buffer[start] == '\t') {
                 ++start;
             }
-            uint8_t end = 11;
+            uint8_t end = targetLen;
             while (end > start && (buffer[end - 1] == ' ' || buffer[end - 1] == '\t')) {
                 --end;
             }
-            const char* target = "forgetfulino";
-            uint8_t targetLen = 11;
             bool match = (end - start == targetLen);
             if (match) {
                 for (uint8_t i = 0; i < targetLen; ++i) {
                     char a = buffer[start + i];
-                    char b = target[i];
-                    if (a >= 'A' && a <= 'Z') a = a - 'A' + 'a';
-                    if (b >= 'A' && b <= 'Z') b = b - 'A' + 'a';
+                    char b = trigger[i];
+                    if (ignoreCase) {
+                        if (a >= 'A' && a <= 'Z') a = a - 'A' + 'a';
+                        if (b >= 'A' && b <= 'Z') b = b - 'A' + 'a';
+                    }
                     if (a != b) {
                         match = false;
                         break;
@@ -248,16 +259,16 @@ static bool forgetfulino_checkSerialTrigger() {
     return false;
 }
 
-void ForgetfulinoClass::dumpSource_OnDemand() {
-    // No need to require begin(): respond to "forgetfulino" whenever data is available
-    if (forgetfulino_checkSerialTrigger()) {
+void ForgetfulinoClass::dumpSource_OnDemand(const char* trigger) {
+    // No need to require begin(): respond whenever the trigger word is received.
+    if (forgetfulino_checkSerialTrigger(trigger)) {
         dumpSource();
     }
 }
 
-void ForgetfulinoClass::dumpCompressed_OnDemand() {
-    // No need to require begin(): respond to "forgetfulino" whenever data is available
-    if (forgetfulino_checkSerialTrigger()) {
+void ForgetfulinoClass::dumpCompressed_OnDemand(const char* trigger) {
+    // No need to require begin(): respond whenever the trigger word is received.
+    if (forgetfulino_checkSerialTrigger(trigger)) {
         dumpCompressed();
     }
 }

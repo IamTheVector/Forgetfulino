@@ -68,8 +68,10 @@ void setup() {
 }
 
 void loop() {
-  Forgetfulino.dumpCompressed_OnDemand();
-  // Forgetfulino.dumpSource_OnDemand();
+  
+  Forgetfulino.dumpCompressed_OnDemand("Forgetfulino"); // Retrieve the code only when the password is issued
+  // Forgetfulino.dumpSource_OnDemand("Forgetfulino"); // Retrieve the code only when the password is issued
+  // No password = type \"forgetfulino\" (case-insensitive)
 }
 `;
 }
@@ -100,8 +102,10 @@ const INJECT_BLOCK_SETUP_LOOP_MODE_WITH_SERIAL = `  Serial.begin(115200);
 `;
 
 /** Block to add at start of loop() for on-demand dump. */
-const INJECT_BLOCK_LOOP_ONDEMAND = `  Forgetfulino.dumpCompressed_OnDemand();
-  // Forgetfulino.dumpSource_OnDemand();
+const INJECT_BLOCK_LOOP_ONDEMAND = `
+  Forgetfulino.dumpCompressed_OnDemand("Forgetfulino"); // Retrieve the code only when the password is issued
+  // Forgetfulino.dumpSource_OnDemand("Forgetfulino"); // Retrieve the code only when the password is issued
+  // No password = type "forgetfulino" (case-insensitive)
 `;
 
 /**

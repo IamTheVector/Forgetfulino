@@ -22,11 +22,15 @@ public:
 
     // Poll Serial and, when the keyword "forgetfulino" (any case) is received,
     // dump the original sketch source. Intended to be called from loop().
-    void dumpSource_OnDemand();
+    // You can override the trigger word; if it is exactly \"forgetfulino\",
+    // matching is case-insensitive, otherwise it is case-sensitive.
+    void dumpSource_OnDemand(const char* trigger = "forgetfulino");
 
     // Poll Serial and, when the keyword "forgetfulino" (any case) is received,
     // dump the compressed sketch. Intended to be called from loop().
-    void dumpCompressed_OnDemand();
+    // You can override the trigger word; if it is exactly \"forgetfulino\",
+    // matching is case-insensitive, otherwise it is case-sensitive.
+    void dumpCompressed_OnDemand(const char* trigger = "forgetfulino");
 };
 
 extern ForgetfulinoClass Forgetfulino;
