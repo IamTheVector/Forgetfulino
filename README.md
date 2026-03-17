@@ -28,6 +28,11 @@ Install it once, forget about it – and still be able to recover your code mont
 - **Annotate library versions** automatically in the recovered code (`#include <EEPROM.h> // version 1.0.0`).
 - **On-demand dump mode with password** – trigger only when you send a specific word on the Serial Monitor.
 
+### 1.2 Videos
+
+- [Watch the short workflow example on YouTube](https://www.youtube.com/watch?v=pP1G1lGtIOk)
+- [Watch the full explaination of all the functions here](https://www.youtube.com/watch?v=jdCU2SBPLEA)
+
 ------------------------------------------------------------
 
 ## 2. API – Functions, description, usage, scenarios
