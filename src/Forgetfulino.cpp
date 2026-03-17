@@ -4,6 +4,31 @@
 #include "forgetfulino_source_data.h"
 #include "forgetfulino_compressed.h"
 
+static const char forgetfulino_default_trigger[] = "forgetfulino";
+
+#ifndef FORGETFULINO_DEBUG
+#define FORGETFULINO_DEBUG 1
+#endif
+
+static void forgetfulino_debugPrintDecision(const char* rawTrigger, const char* normTrigger, bool isForgetfulinoParam, bool hasPassword, const char* effectiveTrigger, uint8_t targetLen, bool ignoreCase) {
+#if FORGETFULINO_DEBUG
+    Serial.print(F("DEBUG raw='"));
+    Serial.print(rawTrigger ? rawTrigger : "<NULL>");
+    Serial.print(F("' norm='"));
+    Serial.print(normTrigger);
+    Serial.print(F("' isForgetfulinoParam="));
+    Serial.print(isForgetfulinoParam ? F("1") : F("0"));
+    Serial.print(F(" hasPassword="));
+    Serial.print(hasPassword ? F("1") : F("0"));
+    Serial.print(F(" effective='"));
+    Serial.print(effectiveTrigger);
+    Serial.print(F("' len="));
+    Serial.print(targetLen);
+    Serial.print(F(" ignoreCase="));
+    Serial.println(ignoreCase ? F("1") : F("0"));
+#endif
+}
+
 ForgetfulinoClass::ForgetfulinoClass()
     : initialized(false) {
 }
@@ -11,7 +36,6 @@ ForgetfulinoClass::ForgetfulinoClass()
 void ForgetfulinoClass::begin() {
     if (!initialized) {
         initialized = true;
-        Serial.println(F("Forgetfulino is here"));
     }
 }
 
@@ -156,121 +180,230 @@ void ForgetfulinoClass::dumpCompressed() {
     Serial.println(F("-------------------------------------------"));
 }
 
+// True when trigger is "Forgetfulino" in any case (then matching is case-insensitive).
+static bool forgetfulino_trigger_is_forgetfulino(const char* trigger) {
+    if (!trigger) return false;
+    uint8_t i = 0;
+    for (; forgetfulino_default_trigger[i] != '\0'; ++i) {
+        char a = trigger[i];
+        char b = forgetfulino_default_trigger[i];
+        if (a == '\0') return false; // trigger shorter
+        if (a >= 'A' && a <= 'Z') a = a - 'A' + 'a';
+        if (b >= 'A' && b <= 'Z') b = b - 'A' + 'a';
+        if (a != b) return false;
+    }
+    // Must end exactly here (no extra chars)
+    return trigger[i] == '\0';
+}
+
+// Helper: compare buffer [start..end) with trigger (length targetLen). Read trigger with FORGETFULINO_READ_TRIGGER. Case-insensitive if ignoreCase.
+static bool forgetfulino_buffer_matches_trigger(const char* buffer, uint8_t start, uint8_t end, const char* trigger, uint8_t targetLen, bool ignoreCase) {
+    if (end - start != targetLen) return false;
+    for (uint8_t i = 0; i < targetLen; ++i) {
+        char a = buffer[start + i];
+        char b = trigger[i];
+        if (ignoreCase) {
+            if (a >= 'A' && a <= 'Z') a = a - 'A' + 'a';
+            if (b >= 'A' && b <= 'Z') b = b - 'A' + 'a';
+        }
+        if (a != b) return false;
+    }
+    return true;
+}
+
 // Helper to check for a trigger word on Serial.
-// If trigger == "forgetfulino" (exact case), matching is case-insensitive.
-// Otherwise matching is case-sensitive.
-// Returns true when a full command has been received and consumed.
+// Step 1: sanitize password parameter:
+//   - nullptr, "" or any case-variant of "forgetfulino" => treated as NO PASSWORD.
+// Step 2:
+//   - NO PASSWORD: only match "forgetfulino" (case-insensitive, trimmed), no cooldown/block/prints.
+//   - PASSWORD (any other non-empty string): match that string (case-sensitive), with cooldown+block.
 static bool forgetfulino_checkSerialTrigger(const char* trigger) {
     static char buffer[16];
     static uint8_t index = 0;
+    static uint8_t wrongAttempts = 0;
+    static unsigned long lastWrongAttemptMillis = 0;
+    static unsigned long blockedUntilMillis = 0;
 
-    // Default trigger: if user leaves () OR passes an empty string.
-    if (!trigger || trigger[0] == '\0') {
-        trigger = "forgetfulino";
+    const unsigned long now = millis();
+
+    // Sanitize password: forgetfulino (any case, with leading/trailing spaces ignored) == no password.
+    bool isForgetfulinoParam = false;
+    char normTrigger[16];
+    normTrigger[0] = '\0';
+    if (trigger != nullptr) {
+        // Copy up to 15 chars, trim, lowercase, then compare to "forgetfulino".
+        char tmp[16];
+        uint8_t len = 0;
+        while (trigger[len] != '\0' && len < 15) {
+            tmp[len] = trigger[len];
+            ++len;
+        }
+        tmp[len] = '\0';
+
+        // Trim spaces/tabs/CR/LF.
+        uint8_t start = 0;
+        while (start < len && (tmp[start] == ' ' || tmp[start] == '\t' || tmp[start] == '\r' || tmp[start] == '\n')) ++start;
+        uint8_t end = len;
+        while (end > start && (tmp[end - 1] == ' ' || tmp[end - 1] == '\t' || tmp[end - 1] == '\r' || tmp[end - 1] == '\n')) --end;
+
+        uint8_t normLen = end > start ? (end - start) : 0;
+        // Build normalized (trimmed + lowercase) string for debug.
+        for (uint8_t i = 0; i < normLen && i < 15; ++i) {
+            char a = tmp[start + i];
+            if (a >= 'A' && a <= 'Z') a = a - 'A' + 'a';
+            normTrigger[i] = a;
+        }
+        normTrigger[normLen < 15 ? normLen : 15] = '\0';
+        // If sanitized string equals "forgetfulino" then treat as no password.
+        isForgetfulinoParam = (strcmp(normTrigger, "forgetfulino") == 0);
     }
-    const uint8_t targetLen = static_cast<uint8_t>(strlen(trigger));
-    const bool ignoreCase =
-        (targetLen == 11 && strcmp(trigger, "forgetfulino") == 0);
+
+    // FORCE: if sanitized == "forgetfulino" then treat as NO PASSWORD.
+    // (This guarantees no password mode even if isForgetfulinoParam logic fails.)
+    bool hasPassword = (trigger != nullptr &&
+                        trigger[0] != '\0' &&
+                        !isForgetfulinoParam);
+    if (!hasPassword) {
+        // already no-password
+    } else if (strcmp(normTrigger, "forgetfulino") == 0) {
+        hasPassword = false;
+        isForgetfulinoParam = true;
+    }
+
+    const char* effectiveTrigger = hasPassword ? trigger : forgetfulino_default_trigger;
+    const uint8_t targetLen = (uint8_t)strlen(effectiveTrigger);
+    const bool ignoreCase = hasPassword ? false : true;
+
+    forgetfulino_debugPrintDecision(trigger, normTrigger, isForgetfulinoParam, hasPassword, effectiveTrigger, targetLen, ignoreCase);
+
+    if (hasPassword && wrongAttempts >= 3 && blockedUntilMillis != 0) {
+        if (now < blockedUntilMillis) {
+            while (Serial.available() > 0) Serial.read();
+            return false;
+        }
+        wrongAttempts = 0;
+        blockedUntilMillis = 0;
+        lastWrongAttemptMillis = 0;
+    }
 
     while (Serial.available() > 0) {
         char c = Serial.read();
 
-        // Treat newline or carriage return as end of command
         if (c == '\n' || c == '\r') {
-            if (index == 0) {
-                continue;
-            }
+            if (index == 0) continue;
             buffer[index] = '\0';
-
-            // Trim leading and trailing spaces/tabs
             uint8_t start = 0;
-            while (buffer[start] == ' ' || buffer[start] == '\t') {
-                ++start;
-            }
+            while (buffer[start] == ' ' || buffer[start] == '\t') ++start;
             uint8_t end = index;
-            while (end > start && (buffer[end - 1] == ' ' || buffer[end - 1] == '\t')) {
-                --end;
-            }
+            while (end > start && (buffer[end - 1] == ' ' || buffer[end - 1] == '\t')) --end;
 
-            // Compare with trigger (optionally case-insensitive)
-            bool match = true;
-
-            // First, lengths must match
-            if (end - start != targetLen) {
-                match = false;
-            } else {
-                for (uint8_t i = 0; i < targetLen; ++i) {
-                    char a = buffer[start + i];
-                    char b = trigger[i];
-                    if (ignoreCase) {
-                        if (a >= 'A' && a <= 'Z') a = a - 'A' + 'a';
-                        if (b >= 'A' && b <= 'Z') b = b - 'A' + 'a';
-                    }
-                    if (a != b) {
-                        match = false;
-                        break;
-                    }
-                }
-            }
-
+            bool match = forgetfulino_buffer_matches_trigger(buffer, start, end, effectiveTrigger, targetLen, ignoreCase);
             index = 0;
-            return match;
+            if (match) {
+                if (hasPassword) {
+                    wrongAttempts = 0;
+                    lastWrongAttemptMillis = 0;
+                    blockedUntilMillis = 0;
+                }
+                return true;
+            }
+            if (!hasPassword) return false;  // no punishment
+            if (lastWrongAttemptMillis != 0 && (now - lastWrongAttemptMillis) < 5000UL) return false;
+            wrongAttempts++;
+            lastWrongAttemptMillis = now;
+            Serial.println(F("Wrong password. Next attempt in 5 seconds."));
+            if (wrongAttempts >= 3) {
+                blockedUntilMillis = now + 300000UL;
+                Serial.println(F("Too many wrong attempts. Wait 5 minutes."));
+            }
+            return false;
         }
 
-        // Build up the command word (we will trim whitespace at the end)
-        if (index < sizeof(buffer) - 1) {
-            buffer[index++] = c;
-        }
+        if (index < sizeof(buffer) - 1) buffer[index++] = c;
 
-        // Trigger even without newline: e.g. Serial Monitor "No line ending"
-        // sends only the N characters (length of trigger word).
         if (index == targetLen && targetLen > 0) {
             buffer[targetLen] = '\0';
             uint8_t start = 0;
-            while (buffer[start] == ' ' || buffer[start] == '\t') {
-                ++start;
-            }
+            while (buffer[start] == ' ' || buffer[start] == '\t') ++start;
             uint8_t end = targetLen;
-            while (end > start && (buffer[end - 1] == ' ' || buffer[end - 1] == '\t')) {
-                --end;
-            }
-            bool match = (end - start == targetLen);
+            while (end > start && (buffer[end - 1] == ' ' || buffer[end - 1] == '\t')) --end;
+
+            bool match = forgetfulino_buffer_matches_trigger(buffer, start, end, effectiveTrigger, targetLen, ignoreCase);
+            index = 0;
             if (match) {
-                for (uint8_t i = 0; i < targetLen; ++i) {
-                    char a = buffer[start + i];
-                    char b = trigger[i];
-                    if (ignoreCase) {
-                        if (a >= 'A' && a <= 'Z') a = a - 'A' + 'a';
-                        if (b >= 'A' && b <= 'Z') b = b - 'A' + 'a';
-                    }
-                    if (a != b) {
-                        match = false;
-                        break;
-                    }
+                if (hasPassword) {
+                    wrongAttempts = 0;
+                    lastWrongAttemptMillis = 0;
+                    blockedUntilMillis = 0;
                 }
-            }
-            if (match) {
-                index = 0;
                 return true;
             }
+            if (!hasPassword) return false;
+            if (lastWrongAttemptMillis != 0 && (now - lastWrongAttemptMillis) < 5000UL) return false;
+            wrongAttempts++;
+            lastWrongAttemptMillis = now;
+            Serial.println(F("Wrong password. Next attempt in 5 seconds."));
+            if (wrongAttempts >= 3) {
+                blockedUntilMillis = now + 300000UL;
+                Serial.println(F("Too many wrong attempts. Wait 5 minutes."));
+            }
+            return false;
         }
     }
-
     return false;
 }
 
 void ForgetfulinoClass::dumpSource_OnDemand(const char* trigger) {
-    // No need to require begin(): respond whenever the trigger word is received.
+    // OnDemand must be in loop(): setup() runs once, so we only get one "pass" there.
+    // First call: print check. Second call (only if in loop): print OK and then run trigger.
+    static uint8_t passCount = 0;
+    if (passCount == 0) {
+        Serial.println(F("Internal Check: Forgetfulino OnDemand should be in Loop only."));
+        passCount = 1;
+        return;
+    }
+    if (passCount == 1) {
+        Serial.println(F("Check OK: Forgetfulino OnDemand is in Loop, Forgetfulino is here."));
+        // "Password protected" only when a custom non-empty trigger is used (not "forgetfulino").
+        if (trigger && trigger[0] != '\0' && !forgetfulino_trigger_is_forgetfulino(trigger)) {
+            Serial.println(F("Password protected"));
+        }
+        passCount = 2;
+    }
+
     if (forgetfulino_checkSerialTrigger(trigger)) {
         dumpSource();
     }
 }
 
+void ForgetfulinoClass::dumpSource_OnDemand() {
+    dumpSource_OnDemand(nullptr);
+}
+
 void ForgetfulinoClass::dumpCompressed_OnDemand(const char* trigger) {
-    // No need to require begin(): respond whenever the trigger word is received.
+    // OnDemand must be in loop(): setup() runs once, so we only get one "pass" there.
+    static uint8_t passCount = 0;
+    if (passCount == 0) {
+        Serial.println(F("Internal Check: Forgetfulino OnDemand should be in Loop only."));
+        passCount = 1;
+        return;
+    }
+    if (passCount == 1) {
+        Serial.println(F("Check OK: Forgetfulino OnDemand is in Loop, Forgetfulino is here."));
+        // "Password protected" only when a custom non-empty trigger is used (not "forgetfulino").
+        if (trigger && trigger[0] != '\0' && !forgetfulino_trigger_is_forgetfulino(trigger)) {
+            Serial.println(F("Password protected"));
+        }
+        passCount = 2;
+    }
+
     if (forgetfulino_checkSerialTrigger(trigger)) {
         dumpCompressed();
     }
+}
+
+void ForgetfulinoClass::dumpCompressed_OnDemand() {
+    dumpCompressed_OnDemand(nullptr);
 }
 
 // Global library instance

@@ -20,17 +20,23 @@ public:
     // Dump the compressed representation of the sketch over Serial immediately
     void dumpCompressed();
 
-    // Poll Serial and, when the keyword "forgetfulino" (any case) is received,
-    // dump the original sketch source. Intended to be called from loop().
-    // You can override the trigger word; if it is exactly \"forgetfulino\",
-    // matching is case-insensitive, otherwise it is case-sensitive.
-    void dumpSource_OnDemand(const char* trigger = "forgetfulino");
+    // OnDemand without password: only reacts to "forgetfulino" (case-insensitive, trimmed).
+    // Intended to be called from loop().
+    void dumpSource_OnDemand();
 
-    // Poll Serial and, when the keyword "forgetfulino" (any case) is received,
-    // dump the compressed sketch. Intended to be called from loop().
-    // You can override the trigger word; if it is exactly \"forgetfulino\",
-    // matching is case-insensitive, otherwise it is case-sensitive.
-    void dumpCompressed_OnDemand(const char* trigger = "forgetfulino");
+    // OnDemand with password: reacts only to the provided trigger.
+    // Special-case: if trigger is "forgetfulino" (any case), matching is case-insensitive.
+    // For other triggers matching is case-sensitive.
+    void dumpSource_OnDemand(const char* trigger);
+
+    // OnDemand without password: only reacts to "forgetfulino" (case-insensitive, trimmed).
+    // Intended to be called from loop().
+    void dumpCompressed_OnDemand();
+
+    // OnDemand with password: reacts only to the provided trigger.
+    // Special-case: if trigger is "forgetfulino" (any case), matching is case-insensitive.
+    // For other triggers matching is case-sensitive.
+    void dumpCompressed_OnDemand(const char* trigger);
 };
 
 extern ForgetfulinoClass Forgetfulino;
