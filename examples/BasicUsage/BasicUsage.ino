@@ -1,5 +1,11 @@
 #include <Forgetfulino.h>
 
+/*WARNING 
+REMOVE THIS EXAMPLE FROM EXAMPLE FOLDER
+USUALLY EXAMPLE FOLDER HAS NO WRITE PERMISSIONS
+WARNING*/
+
+
 // Basic example:
 // - prints a compressed dump once at boot
 // - you can decode it from the IDE using
